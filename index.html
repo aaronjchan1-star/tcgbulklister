@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>One Piece TCG — eBay AU Bulk Lister</title>
+  <title>TCG eBay AU Bulk Lister</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -11,12 +11,12 @@
   <div class="container">
 
     <div class="header">
-      <h1>One Piece TCG — eBay AU Bulk Lister</h1>
-      <p>Enter card numbers (e.g. OP01-001), fetch last sold prices, then export your eBay CSV.</p>
+      <h1>TCG eBay AU Bulk Lister</h1>
+      <p>One Piece &amp; Pokémon — enter card details, fetch last sold prices, export your eBay CSV.</p>
     </div>
 
     <!-- API Key -->
-    <div class="api-banner" id="api-banner">
+    <div class="api-banner">
       <strong>eBay API key required for last sold price lookup</strong>
       <p>
         Get a free key at
@@ -50,46 +50,95 @@
     <div class="card" id="form-card">
       <h2>Add a card</h2>
 
-      <div class="form-row row-5">
-        <div class="field">
-          <label for="f-number">Card number</label>
-          <div class="input-action-row">
-            <input type="text" id="f-number" placeholder="e.g. OP01-001" maxlength="12" />
-            <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()" title="Fetch last sold price from eBay">
-              <span id="lookup-label">Fetch price</span>
-            </button>
+      <!-- Game Toggle -->
+      <div class="game-toggle">
+        <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
+        <button class="game-btn" id="btn-pk" onclick="UI.setGame('pokemon')">Pokémon</button>
+      </div>
+
+      <!-- One Piece fields -->
+      <div id="op-fields">
+        <div class="form-row row-5" style="margin-bottom:12px;">
+          <div class="field">
+            <label for="f-op-number">Card number</label>
+            <div class="input-action-row">
+              <input type="text" id="f-op-number" placeholder="e.g. OP01-060" maxlength="12" />
+              <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()" title="Fetch last sold price">
+                <span id="lookup-label">Fetch price</span>
+              </button>
+            </div>
+            <div class="lookup-status" id="lookup-status"></div>
+            <div id="card-preview" style="display:none; margin-top:8px;">
+              <img id="card-preview-img" src="" alt="Card preview" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
+            </div>
           </div>
-          <div class="lookup-status" id="lookup-status"></div>
-          <div id="card-preview" style="display:none; margin-top:8px;">
-            <img id="card-preview-img" src="" alt="Card preview" style="width:72px; border-radius:6px; border:1px solid #e5e5e5;" />
+          <div class="field">
+            <label for="f-op-name">Card name</label>
+            <input type="text" id="f-op-name" placeholder="e.g. Monkey D. Luffy" />
           </div>
-        </div>
-        <div class="field">
-          <label for="f-name">Card name</label>
-          <input type="text" id="f-name" placeholder="e.g. Monkey D. Luffy" />
-        </div>
-        <div class="field">
-          <label for="f-lang">Language</label>
-          <select id="f-lang">
-            <option value="English">English</option>
-            <option value="Japanese">Japanese</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="f-cond">Condition</label>
-          <select id="f-cond">
-            <option value="Near Mint">Near Mint</option>
-            <option value="Lightly Played">Lightly Played</option>
-            <option value="Moderately Played">Moderately Played</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="f-qty">Qty</label>
-          <input type="number" id="f-qty" value="1" min="1" max="99" />
+          <div class="field">
+            <label for="f-op-lang">Language</label>
+            <select id="f-op-lang">
+              <option value="English">English</option>
+              <option value="Japanese">Japanese</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-op-cond">Condition</label>
+            <select id="f-op-cond">
+              <option value="Near Mint">Near Mint</option>
+              <option value="Lightly Played">Lightly Played</option>
+              <option value="Moderately Played">Moderately Played</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-op-qty">Qty</label>
+            <input type="number" id="f-op-qty" value="1" min="1" max="99" />
+          </div>
         </div>
       </div>
 
-      <div class="form-row row-3" style="margin-top:12px;">
+      <!-- Pokémon fields -->
+      <div id="pk-fields" style="display:none;">
+        <div class="form-row row-5" style="margin-bottom:12px;">
+          <div class="field">
+            <label for="f-pk-set">Set</label>
+            <select id="f-pk-set" onchange="UI.updatePokemonPreview()"></select>
+          </div>
+          <div class="field">
+            <label for="f-pk-number">Card number</label>
+            <div class="input-action-row">
+              <input type="text" id="f-pk-number" placeholder="e.g. 215" maxlength="10" />
+              <button class="btn-lookup" onclick="API.lookup()" title="Fetch last sold price">
+                <span>Fetch</span>
+              </button>
+            </div>
+            <div class="lookup-status" id="pk-lookup-status"></div>
+            <div id="pk-card-preview" style="display:none; margin-top:8px;">
+              <img id="pk-card-preview-img" src="" alt="Card preview" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-pk-name">Card name</label>
+            <input type="text" id="f-pk-name" placeholder="e.g. Charizard ex" />
+          </div>
+          <div class="field">
+            <label for="f-pk-cond">Condition</label>
+            <select id="f-pk-cond">
+              <option value="Near Mint">Near Mint</option>
+              <option value="Lightly Played">Lightly Played</option>
+              <option value="Moderately Played">Moderately Played</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-pk-qty">Qty</label>
+            <input type="number" id="f-pk-qty" value="1" min="1" max="99" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared price/postage row -->
+      <div class="form-row row-3" style="margin-top:4px;">
         <div class="field">
           <label for="f-price">Price (AUD)</label>
           <input type="number" id="f-price" placeholder="0.00" min="0" step="0.01" />
@@ -117,9 +166,10 @@
       <h2>Your listings</h2>
       <div class="listings-header">
         <span></span>
+        <span>Game</span>
         <span>Number</span>
         <span>Name</span>
-        <span>Lang</span>
+        <span>Lang / Set</span>
         <span>Cond</span>
         <span>Qty</span>
         <span>Price</span>
@@ -137,6 +187,7 @@
 
   </div>
 
+  <script src="js/sets.js"></script>
   <script src="js/api.js"></script>
   <script src="js/listings.js"></script>
   <script src="js/csv.js"></script>

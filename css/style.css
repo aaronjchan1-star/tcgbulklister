@@ -187,3 +187,85 @@ input:focus, select:focus {
   .stats { grid-template-columns: 1fr 1fr; }
   .stats .stat:last-child { grid-column: span 2; }
 }
+
+/* ─── Game Toggle ─── */
+.game-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.game-btn {
+  padding: 7px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--border-md);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.game-btn.active {
+  background: #e8e8e8;
+  color: #0f0f0f;
+  border-color: #e8e8e8;
+}
+
+.game-btn:hover:not(.active) {
+  border-color: var(--border-md);
+  color: var(--text);
+}
+
+/* ─── Badges ─── */
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.badge-op {
+  background: #1a2a1a;
+  color: #4ade80;
+  border: 1px solid #1e4a1e;
+}
+
+.badge-pk {
+  background: #1a1a2e;
+  color: #818cf8;
+  border: 1px solid #2e2e5a;
+}
+
+/* ─── Updated listings grid (10 cols) ─── */
+.listings-header {
+  display: grid;
+  grid-template-columns: 52px 80px 0.8fr 1.4fr 1.2fr 0.8fr 0.4fr 0.6fr 0.6fr 36px;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.listing-row {
+  display: grid;
+  grid-template-columns: 52px 80px 0.8fr 1.4fr 1.2fr 0.8fr 0.4fr 0.6fr 0.6fr 36px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--bg-row);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
