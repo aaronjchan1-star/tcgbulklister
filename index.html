@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One Piece TCG — eBay AU Bulk Lister</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="container">
+
+    <div class="header">
+      <h1>One Piece TCG — eBay AU Bulk Lister</h1>
+      <p>Enter card numbers (e.g. OP01-001), fetch last sold prices, then export your eBay CSV.</p>
+    </div>
+
+    <!-- API Key -->
+    <div class="api-banner" id="api-banner">
+      <strong>eBay API key required for last sold price lookup</strong>
+      <p>
+        Get a free key at
+        <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a>
+        → My Account → Application Keys → Production App ID (Client ID).
+      </p>
+      <div class="api-row">
+        <input type="text" id="api-key-input" placeholder="Paste your eBay Production Client ID..." />
+        <button onclick="API.save()">Save</button>
+      </div>
+      <div class="api-status" id="api-status"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val" id="stat-count">0</div>
+        <div class="stat-label">listings</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="stat-total">$0.00</div>
+        <div class="stat-label">total value (AUD)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="stat-avg">—</div>
+        <div class="stat-label">avg. price</div>
+      </div>
+    </div>
+
+    <!-- Add Card Form -->
+    <div class="card" id="form-card">
+      <h2>Add a card</h2>
+
+      <div class="form-row row-5">
+        <div class="field">
+          <label for="f-number">Card number</label>
+          <div class="input-action-row">
+            <input type="text" id="f-number" placeholder="e.g. OP01-001" maxlength="12" />
+            <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()" title="Fetch last sold price from eBay">
+              <span id="lookup-label">Fetch price</span>
+            </button>
+          </div>
+          <div class="lookup-status" id="lookup-status"></div>
+        </div>
+        <div class="field">
+          <label for="f-name">Card name</label>
+          <input type="text" id="f-name" placeholder="e.g. Monkey D. Luffy" />
+        </div>
+        <div class="field">
+          <label for="f-lang">Language</label>
+          <select id="f-lang">
+            <option value="English">English</option>
+            <option value="Japanese">Japanese</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-cond">Condition</label>
+          <select id="f-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-qty">Qty</label>
+          <input type="number" id="f-qty" value="1" min="1" max="99" />
+        </div>
+      </div>
+
+      <div class="form-row row-3" style="margin-top:12px;">
+        <div class="field">
+          <label for="f-price">Price (AUD)</label>
+          <input type="number" id="f-price" placeholder="0.00" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label for="f-post">Postage</label>
+          <select id="f-post" onchange="UI.toggleCustomPost()">
+            <option value="3.50">Standard letter — $3.50</option>
+            <option value="7.50">Tracked parcel — $7.50</option>
+            <option value="0">Free postage</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+        <div class="field" id="custom-post-wrap" style="display:none;">
+          <label for="f-custom-post">Custom postage (AUD)</label>
+          <input type="number" id="f-custom-post" placeholder="0.00" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <button class="btn-add" onclick="Listings.add()">+ Add to list</button>
+    </div>
+
+    <!-- Listings Table -->
+    <div class="card">
+      <h2>Your listings</h2>
+      <div class="listings-header">
+        <span>Number</span>
+        <span>Name</span>
+        <span>Lang</span>
+        <span>Cond</span>
+        <span>Qty</span>
+        <span>Price</span>
+        <span>Post</span>
+        <span></span>
+      </div>
+      <div id="empty-msg" class="empty">No cards added yet — use the form above to get started.</div>
+      <div id="listings-list"></div>
+
+      <div id="action-bar" style="display:none; margin-top:16px;">
+        <button class="btn-download" onclick="CSV.download()">&#8595; Download eBay CSV</button>
+        <p class="hint">Upload via: eBay Seller Hub › Listings › Bulk listing upload › File Exchange</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/listings.js"></script>
+  <script src="js/csv.js"></script>
+  <script src="js/ui.js"></script>
+
+</body>
+</html>
