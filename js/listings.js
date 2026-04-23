@@ -1,9 +1,15 @@
 /**
  * listings.js
  * Manages the in-memory listings array and renders the table.
+ *
+ * Card images sourced from Limitless TCG CDN:
+ * https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/{SET}/{SET}-{NUM}_{LANG}.webp
+ * e.g. OP01-060_EN.webp or OP01-060_JP.webp
  */
 
 const Listings = (() => {
+  const IMG_BASE = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece';
+
   let items = [];
 
   function getPostage() {
@@ -12,6 +18,17 @@ const Listings = (() => {
       return parseFloat(document.getElementById('f-custom-post').value) || 0;
     }
     return parseFloat(sel);
+  }
+
+  /**
+   * Build image URL from card number and language.
+   * Card number format: OP01-060, ST07-003 etc.
+   * Set code is the part before the dash: OP01, ST07 etc.
+   */
+  function imageUrl(number, lang) {
+    const set    = number.split('-')[0].toUpperCase();
+    const langTag = lang === 'Japanese' ? 'JP' : 'EN';
+    return `${IMG_BASE}/${set}/${number}_${langTag}.webp`;
   }
 
   function add() {
@@ -47,6 +64,7 @@ const Listings = (() => {
     document.getElementById('f-price').value  = '';
     document.getElementById('f-qty').value    = '1';
     document.getElementById('lookup-status').textContent = '';
+    document.getElementById('card-preview').style.display = 'none';
     document.getElementById('f-number').focus();
 
     render();
@@ -62,9 +80,9 @@ const Listings = (() => {
   }
 
   function render() {
-    const list   = document.getElementById('listings-list');
-    const empty  = document.getElementById('empty-msg');
-    const bar    = document.getElementById('action-bar');
+    const list  = document.getElementById('listings-list');
+    const empty = document.getElementById('empty-msg');
+    const bar   = document.getElementById('action-bar');
 
     if (items.length === 0) {
       empty.style.display = 'block';
@@ -75,8 +93,14 @@ const Listings = (() => {
       bar.style.display = 'block';
       list.innerHTML = items.map((l, i) => `
         <div class="listing-row">
+          <img
+            class="card-thumb"
+            src="${imageUrl(l.number, l.lang)}"
+            alt="${l.number}"
+            onerror="this.style.display='none'"
+          />
           <span class="mono">${l.number}</span>
-          <span title="${l.name}">${l.name}</span>
+          <span class="listing-name" title="${l.name}">${l.name}</span>
           <span class="muted">${l.lang === 'Japanese' ? 'JP' : 'EN'}</span>
           <span class="muted">${l.cond}</span>
           <span class="muted">${l.qty}</span>
@@ -101,5 +125,5 @@ const Listings = (() => {
       : '—';
   }
 
-  return { add, remove, getAll, render };
+  return { add, remove, getAll, render, imageUrl };
 })();
