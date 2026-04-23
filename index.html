@@ -7,191 +7,200 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+<div class="container">
 
-  <div class="container">
-
-    <div class="header">
-      <h1>TCG eBay AU Bulk Lister</h1>
-      <p>One Piece &amp; Pokémon — enter card details, fetch last sold prices, export your eBay CSV.</p>
-    </div>
-
-    <!-- API Key -->
-    <div class="api-banner">
-      <strong>eBay API key required for last sold price lookup</strong>
-      <p>
-        Get a free key at
-        <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a>
-        → My Account → Application Keys → Production App ID (Client ID).
-      </p>
-      <div class="api-row">
-        <input type="text" id="api-key-input" placeholder="Paste your eBay Production Client ID..." />
-        <button onclick="API.save()">Save</button>
-      </div>
-      <div class="api-status" id="api-status"></div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-val" id="stat-count">0</div>
-        <div class="stat-label">listings</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="stat-total">$0.00</div>
-        <div class="stat-label">total value (AUD)</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="stat-avg">—</div>
-        <div class="stat-label">avg. price</div>
-      </div>
-    </div>
-
-    <!-- Add Card Form -->
-    <div class="card" id="form-card">
-      <h2>Add a card</h2>
-
-      <!-- Game Toggle -->
-      <div class="game-toggle">
-        <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
-        <button class="game-btn" id="btn-pk" onclick="UI.setGame('pokemon')">Pokémon</button>
-      </div>
-
-      <!-- One Piece fields -->
-      <div id="op-fields">
-        <div class="form-row row-5" style="margin-bottom:12px;">
-          <div class="field">
-            <label for="f-op-number">Card number</label>
-            <div class="input-action-row">
-              <input type="text" id="f-op-number" placeholder="e.g. OP01-060" maxlength="12" />
-              <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()" title="Fetch last sold price">
-                <span id="lookup-label">Fetch price</span>
-              </button>
-            </div>
-            <div class="lookup-status" id="lookup-status"></div>
-            <div id="card-preview" style="display:none; margin-top:8px;">
-              <img id="card-preview-img" src="" alt="Card preview" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
-            </div>
-          </div>
-          <div class="field">
-            <label for="f-op-name">Card name</label>
-            <input type="text" id="f-op-name" placeholder="e.g. Monkey D. Luffy" />
-          </div>
-          <div class="field">
-            <label for="f-op-lang">Language</label>
-            <select id="f-op-lang">
-              <option value="English">English</option>
-              <option value="Japanese">Japanese</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="f-op-cond">Condition</label>
-            <select id="f-op-cond">
-              <option value="Near Mint">Near Mint</option>
-              <option value="Lightly Played">Lightly Played</option>
-              <option value="Moderately Played">Moderately Played</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="f-op-qty">Qty</label>
-            <input type="number" id="f-op-qty" value="1" min="1" max="99" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Pokémon fields -->
-      <div id="pk-fields" style="display:none;">
-        <div class="form-row row-5" style="margin-bottom:12px;">
-          <div class="field">
-            <label for="f-pk-set">Set</label>
-            <select id="f-pk-set" onchange="UI.updatePokemonPreview()"></select>
-          </div>
-          <div class="field">
-            <label for="f-pk-number">Card number</label>
-            <div class="input-action-row">
-              <input type="text" id="f-pk-number" placeholder="e.g. 215" maxlength="10" />
-              <button class="btn-lookup" onclick="API.lookup()" title="Fetch last sold price">
-                <span>Fetch</span>
-              </button>
-            </div>
-            <div class="lookup-status" id="pk-lookup-status"></div>
-            <div id="pk-card-preview" style="display:none; margin-top:8px;">
-              <img id="pk-card-preview-img" src="" alt="Card preview" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
-            </div>
-          </div>
-          <div class="field">
-            <label for="f-pk-name">Card name</label>
-            <input type="text" id="f-pk-name" placeholder="e.g. Charizard ex" />
-          </div>
-          <div class="field">
-            <label for="f-pk-cond">Condition</label>
-            <select id="f-pk-cond">
-              <option value="Near Mint">Near Mint</option>
-              <option value="Lightly Played">Lightly Played</option>
-              <option value="Moderately Played">Moderately Played</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="f-pk-qty">Qty</label>
-            <input type="number" id="f-pk-qty" value="1" min="1" max="99" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Shared price/postage row -->
-      <div class="form-row row-3" style="margin-top:4px;">
-        <div class="field">
-          <label for="f-price">Price (AUD)</label>
-          <input type="number" id="f-price" placeholder="0.00" min="0" step="0.01" />
-        </div>
-        <div class="field">
-          <label for="f-post">Postage</label>
-          <select id="f-post" onchange="UI.toggleCustomPost()">
-            <option value="3.50">Standard letter — $3.50</option>
-            <option value="7.50">Tracked parcel — $7.50</option>
-            <option value="0">Free postage</option>
-            <option value="custom">Custom...</option>
-          </select>
-        </div>
-        <div class="field" id="custom-post-wrap" style="display:none;">
-          <label for="f-custom-post">Custom postage (AUD)</label>
-          <input type="number" id="f-custom-post" placeholder="0.00" min="0" step="0.01" />
-        </div>
-      </div>
-
-      <button class="btn-add" onclick="Listings.add()">+ Add to list</button>
-    </div>
-
-    <!-- Listings Table -->
-    <div class="card">
-      <h2>Your listings</h2>
-      <div class="listings-header">
-        <span></span>
-        <span>Game</span>
-        <span>Number</span>
-        <span>Name</span>
-        <span>Lang / Set</span>
-        <span>Cond</span>
-        <span>Qty</span>
-        <span>Price</span>
-        <span>Post</span>
-        <span></span>
-      </div>
-      <div id="empty-msg" class="empty">No cards added yet — use the form above to get started.</div>
-      <div id="listings-list"></div>
-
-      <div id="action-bar" style="display:none; margin-top:16px;">
-        <button class="btn-download" onclick="CSV.download()">&#8595; Download eBay CSV</button>
-        <p class="hint">Upload via: eBay Seller Hub › Listings › Bulk listing upload › File Exchange</p>
-      </div>
-    </div>
-
+  <div class="header">
+    <h1>TCG eBay AU Bulk Lister</h1>
+    <p>One Piece &amp; Pokémon — add your cards, bulk fetch prices, then export your eBay CSV.</p>
   </div>
 
-  <script src="js/sets.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/listings.js"></script>
-  <script src="js/csv.js"></script>
-  <script src="js/ui.js"></script>
+  <!-- API Key -->
+  <div class="api-banner">
+    <strong>eBay API key required for price lookup</strong>
+    <p>Get a free key at <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a> → My Account → Application Keys → Production App ID (Client ID).</p>
+    <div class="api-row">
+      <input type="text" id="api-key-input" placeholder="Paste your eBay Production Client ID..." />
+      <button onclick="API.save()">Save</button>
+    </div>
+    <div class="api-status" id="api-status"></div>
+  </div>
 
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="stat-count">0</div>
+      <div class="stat-label">listings</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-total">$0.00</div>
+      <div class="stat-label">total value (AUD)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-avg">—</div>
+      <div class="stat-label">avg. price</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-unpriced">0</div>
+      <div class="stat-label">unpriced</div>
+    </div>
+  </div>
+
+  <!-- Add Card Form -->
+  <div class="card">
+    <h2>Add a card</h2>
+
+    <div class="game-toggle">
+      <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
+      <button class="game-btn" id="btn-pk" onclick="UI.setGame('pokemon')">Pokémon</button>
+    </div>
+
+    <!-- One Piece fields -->
+    <div id="op-fields">
+      <div class="form-row row-5" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Card number</label>
+          <div class="input-action-row">
+            <input type="text" id="f-op-number" placeholder="e.g. OP01-060" maxlength="12" />
+            <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()">
+              <span id="lookup-label">Fetch price</span>
+            </button>
+          </div>
+          <div class="lookup-status" id="lookup-status"></div>
+          <div id="card-preview" style="display:none; margin-top:8px;">
+            <img id="card-preview-img" src="" alt="" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Card name</label>
+          <input type="text" id="f-op-name" placeholder="e.g. Monkey D. Luffy" />
+        </div>
+        <div class="field">
+          <label>Language</label>
+          <select id="f-op-lang">
+            <option value="English">English</option>
+            <option value="Japanese">Japanese</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Condition</label>
+          <select id="f-op-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Qty</label>
+          <input type="number" id="f-op-qty" value="1" min="1" max="99" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Pokémon fields -->
+    <div id="pk-fields" style="display:none;">
+      <div class="form-row row-5" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Set</label>
+          <select id="f-pk-set" onchange="UI.updatePokemonPreview()"></select>
+        </div>
+        <div class="field">
+          <label>Card number</label>
+          <div class="input-action-row">
+            <input type="text" id="f-pk-number" placeholder="e.g. 215" maxlength="10" />
+            <button class="btn-lookup" onclick="API.lookup()"><span>Fetch</span></button>
+          </div>
+          <div class="lookup-status" id="pk-lookup-status"></div>
+          <div id="pk-card-preview" style="display:none; margin-top:8px;">
+            <img id="pk-card-preview-img" src="" alt="" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Card name</label>
+          <input type="text" id="f-pk-name" placeholder="e.g. Charizard ex" />
+        </div>
+        <div class="field">
+          <label>Condition</label>
+          <select id="f-pk-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Qty</label>
+          <input type="number" id="f-pk-qty" value="1" min="1" max="99" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared price / postage -->
+    <div class="form-row row-3" style="margin-top:4px;">
+      <div class="field">
+        <label>Price (AUD) <span style="color:var(--text-muted); font-weight:400;">— optional, fetch later</span></label>
+        <input type="number" id="f-price" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div class="field">
+        <label>Postage</label>
+        <select id="f-post" onchange="UI.toggleCustomPost()">
+          <option value="0" selected>Free postage</option>
+          <option value="3.50">Standard letter — $3.50</option>
+          <option value="7.50">Tracked parcel — $7.50</option>
+          <option value="custom">Custom...</option>
+        </select>
+      </div>
+      <div class="field" id="custom-post-wrap" style="display:none;">
+        <label>Custom postage (AUD)</label>
+        <input type="number" id="f-custom-post" placeholder="0.00" min="0" step="0.01" />
+      </div>
+    </div>
+
+    <button class="btn-add" onclick="Listings.add()">+ Add to list</button>
+  </div>
+
+  <!-- Listings -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <h2 style="margin-bottom:0;">Your listings</h2>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="save-status" style="font-size:12px; color:var(--green); opacity:0; transition:opacity 0.4s;"></span>
+        <button class="btn-clear" onclick="Listings.clearAll()">Clear all</button>
+      </div>
+    </div>
+
+    <div class="listings-header">
+      <span></span>
+      <span>Game</span>
+      <span>Number</span>
+      <span>Name</span>
+      <span>Lang / Set</span>
+      <span>Cond</span>
+      <span>Qty</span>
+      <span>Price</span>
+      <span>Post</span>
+      <span></span>
+    </div>
+
+    <div id="empty-msg" class="empty">No cards added yet — use the form above to get started.<br><span style="font-size:12px; color:var(--text-hint); margin-top:4px; display:block;">Your list auto-saves in this browser.</span></div>
+    <div id="listings-list"></div>
+
+    <div id="action-bar" style="display:none; margin-top:16px;">
+      <!-- Bulk fetch -->
+      <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none;">
+        Fetch prices for unpriced cards
+      </button>
+      <div id="bulk-status" class="bulk-status" style="display:none;"></div>
+
+      <button class="btn-download" onclick="CSV.download()" style="margin-top:10px;">&#8595; Download eBay CSV</button>
+      <p class="hint">Upload via: eBay Seller Hub › Listings › Bulk listing upload › File Exchange</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/sets.js"></script>
+<script src="js/api.js"></script>
+<script src="js/listings.js"></script>
+<script src="js/csv.js"></script>
+<script src="js/ui.js"></script>
 </body>
 </html>

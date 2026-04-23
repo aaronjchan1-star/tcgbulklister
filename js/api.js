@@ -1,9 +1,6 @@
 /**
  * api.js
- * eBay Finding API — last sold price lookup by card number.
- * Works for both One Piece and Pokémon.
- *
- * Uses allorigins CORS proxy to call eBay Finding API (no OAuth needed for Finding API).
+ * eBay Finding API — single and bulk last sold price lookup.
  */
 
 const API = (() => {
@@ -27,114 +24,183 @@ const API = (() => {
     statusEl.className   = 'api-status ok';
   }
 
+  async function fetchPrice(keywords, categoryId) {
+    if (!appId) throw new Error('No API key saved.');
+
+    const findingUrl = [
+      FINDING_ENDPOINT,
+      '?OPERATION-NAME=findCompletedItems',
+      '&SERVICE-VERSION=1.0.0',
+      `&SECURITY-APPNAME=${encodeURIComponent(appId)}`,
+      '&RESPONSE-DATA-FORMAT=JSON',
+      `&keywords=${encodeURIComponent(keywords)}`,
+      `&categoryId=${categoryId}`,
+      '&itemFilter(0).name=SoldItemsOnly',
+      '&itemFilter(0).value=true',
+      '&itemFilter(1).name=Currency',
+      '&itemFilter(1).value=AUD',
+      '&itemFilter(2).name=ListingType',
+      '&itemFilter(2).value=FixedPrice',
+      '&sortOrder=EndTimeSoonest',
+      '&paginationInput.entriesPerPage=5'
+    ].join('');
+
+    const res = await fetch(PROXY + encodeURIComponent(findingUrl));
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const outer = await res.json();
+    const data  = JSON.parse(outer.contents);
+    const root  = data?.findCompletedItemsResponse?.[0];
+    const ack   = root?.ack?.[0];
+
+    if (ack !== 'Success') {
+      const errMsg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay error';
+      throw new Error(errMsg);
+    }
+
+    const soldItems = root?.searchResult?.[0]?.item;
+    if (!soldItems || soldItems.length === 0) return null;
+
+    const prices = soldItems
+      .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__))
+      .filter(p => !isNaN(p) && p > 0)
+      .sort((a, b) => a - b);
+
+    return prices.length > 0 ? prices[Math.floor(prices.length / 2)] : null;
+  }
+
+  function buildKeywords(card) {
+    if (card.game === 'onePiece') {
+      return `${card.number} One Piece TCG SR ${card.lang}`;
+    }
+    return `${card.name} ${card.setName} ${card.number} Pokémon TCG`.trim();
+  }
+
+  /* ─── Single lookup (from form) ─── */
   async function lookup() {
     const game = Listings.getGame();
-
-    let keywords, statusEl, labelEl, btn;
+    let keywords, statusEl, labelEl, btn, categoryId;
 
     if (game === 'onePiece') {
       const cardNumber = document.getElementById('f-op-number').value.trim().toUpperCase();
       const lang       = document.getElementById('f-op-lang').value;
       if (!cardNumber) {
-        document.getElementById('lookup-status').textContent = 'Enter a card number first.';
-        document.getElementById('lookup-status').className   = 'lookup-status err';
+        setStatus('lookup-status', 'Enter a card number first.', 'err');
         return;
       }
-      keywords  = `${cardNumber} One Piece TCG SR ${lang}`;
-      statusEl  = document.getElementById('lookup-status');
-      labelEl   = document.getElementById('lookup-label');
-      btn       = document.getElementById('btn-lookup');
+      keywords   = `${cardNumber} One Piece TCG SR ${lang}`;
+      categoryId = '183454';
+      statusEl   = document.getElementById('lookup-status');
+      labelEl    = document.getElementById('lookup-label');
+      btn        = document.getElementById('btn-lookup');
     } else {
       const setName = document.getElementById('f-pk-set').selectedOptions[0]?.text || '';
       const number  = document.getElementById('f-pk-number').value.trim();
       const name    = document.getElementById('f-pk-name').value.trim();
       if (!number) {
-        document.getElementById('pk-lookup-status').textContent = 'Enter a card number first.';
-        document.getElementById('pk-lookup-status').className   = 'lookup-status err';
+        setStatus('pk-lookup-status', 'Enter a card number first.', 'err');
         return;
       }
-      keywords = `${name || ''} ${setName} ${number} Pokémon TCG`.trim();
-      statusEl = document.getElementById('pk-lookup-status');
-      labelEl  = null;
-      btn      = null;
+      keywords   = `${name} ${setName} ${number} Pokémon TCG`.trim();
+      categoryId = '2536';
+      statusEl   = document.getElementById('pk-lookup-status');
+      labelEl    = null;
+      btn        = null;
     }
 
     if (!appId) {
-      statusEl.textContent = 'No API key saved — paste your eBay App ID above.';
+      statusEl.textContent = 'No API key — paste your eBay App ID above.';
       statusEl.className   = 'lookup-status err';
       return;
     }
 
-    if (btn)    btn.disabled     = true;
+    if (btn)     btn.disabled        = true;
     if (labelEl) labelEl.textContent = 'Fetching...';
     statusEl.textContent = '';
     statusEl.className   = 'lookup-status';
 
     try {
-      const categoryId = game === 'pokemon' ? '2536' : '183454';
-
-      const findingUrl = [
-        FINDING_ENDPOINT,
-        '?OPERATION-NAME=findCompletedItems',
-        '&SERVICE-VERSION=1.0.0',
-        `&SECURITY-APPNAME=${encodeURIComponent(appId)}`,
-        '&RESPONSE-DATA-FORMAT=JSON',
-        `&keywords=${encodeURIComponent(keywords)}`,
-        `&categoryId=${categoryId}`,
-        '&itemFilter(0).name=SoldItemsOnly',
-        '&itemFilter(0).value=true',
-        '&itemFilter(1).name=Currency',
-        '&itemFilter(1).value=AUD',
-        '&itemFilter(2).name=ListingType',
-        '&itemFilter(2).value=FixedPrice',
-        '&sortOrder=EndTimeSoonest',
-        '&paginationInput.entriesPerPage=5'
-      ].join('');
-
-      const res   = await fetch(PROXY + encodeURIComponent(findingUrl));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const outer = await res.json();
-      const data  = JSON.parse(outer.contents);
-      const root  = data?.findCompletedItemsResponse?.[0];
-      const ack   = root?.ack?.[0];
-
-      if (ack !== 'Success') {
-        const errMsg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay returned an error.';
-        throw new Error(errMsg);
-      }
-
-      const items = root?.searchResult?.[0]?.item;
-      if (!items || items.length === 0) {
+      const median = await fetchPrice(keywords, categoryId);
+      if (median === null) {
         statusEl.textContent = 'No recent sold listings found.';
         statusEl.className   = 'lookup-status err';
-        return;
+      } else {
+        document.getElementById('f-price').value = median.toFixed(2);
+        statusEl.textContent = `Median $${median.toFixed(2)} AUD from recent sold listings`;
+        statusEl.className   = 'lookup-status ok';
       }
-
-      const prices = items
-        .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__))
-        .filter(p => !isNaN(p) && p > 0)
-        .sort((a, b) => a - b);
-
-      if (prices.length === 0) throw new Error('Could not parse prices.');
-
-      const median   = prices[Math.floor(prices.length / 2)];
-      const endTime  = items[0]?.listingInfo?.[0]?.endTime?.[0] || '';
-      const soldDate = endTime ? new Date(endTime).toLocaleDateString('en-AU') : 'unknown date';
-
-      document.getElementById('f-price').value = median.toFixed(2);
-
-      statusEl.textContent = `${prices.length} sold listing${prices.length > 1 ? 's' : ''} — median $${median.toFixed(2)} AUD (last sold ${soldDate})`;
-      statusEl.className   = 'lookup-status ok';
-
     } catch (err) {
       statusEl.textContent = `Lookup failed: ${err.message}`;
       statusEl.className   = 'lookup-status err';
     } finally {
-      if (btn)    btn.disabled = false;
+      if (btn)     btn.disabled        = false;
       if (labelEl) labelEl.textContent = 'Fetch price';
     }
   }
 
-  return { save, lookup };
+  /* ─── Bulk price fetch ─── */
+  async function bulkFetch() {
+    if (!appId) {
+      alert('Paste your eBay API key first.');
+      return;
+    }
+
+    const items     = Listings.getItems();
+    const unpriced  = items.map((c, i) => ({ card: c, index: i }))
+                           .filter(({ card }) => !card.price || card.price === 0);
+
+    if (unpriced.length === 0) {
+      alert('All cards already have prices.');
+      return;
+    }
+
+    const btn       = document.getElementById('bulk-fetch-btn');
+    const statusEl  = document.getElementById('bulk-status');
+    btn.disabled    = true;
+    statusEl.style.display = 'block';
+
+    let success = 0, failed = 0;
+
+    for (let i = 0; i < unpriced.length; i++) {
+      const { card, index } = unpriced[i];
+      statusEl.textContent  = `Fetching ${i + 1} of ${unpriced.length}: ${card.number || card.name}...`;
+
+      try {
+        const keywords   = buildKeywords(card);
+        const categoryId = card.game === 'pokemon' ? '2536' : '183454';
+        const median     = await fetchPrice(keywords, categoryId);
+
+        if (median !== null) {
+          Listings.updatePrice(index, median);
+          success++;
+        } else {
+          failed++;
+        }
+      } catch(e) {
+        failed++;
+      }
+
+      // Delay between requests to avoid rate limiting
+      if (i < unpriced.length - 1) {
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+
+    statusEl.textContent = `Done — ${success} priced, ${failed} not found.`;
+    btn.disabled = false;
+
+    // Refresh render to show new prices
+    Listings.render();
+
+    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+  }
+
+  function setStatus(elId, msg, type) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.className   = `lookup-status ${type}`;
+  }
+
+  return { save, lookup, bulkFetch };
 })();
