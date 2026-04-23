@@ -9,6 +9,10 @@
  * ConditionID: 4000 = Very Good, 3000 = Good (used for NM/LP/MP respectively)
  * Format: FixedPriceItem
  * Duration: GTC (Good 'Til Cancelled)
+ *
+ * PicURL: eBay fetches the image directly from the URL during CSV processing.
+ * We use the Limitless TCG CDN which has images for every card by number.
+ * Format: https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/{SET}/{CARD}_EN.webp
  */
 
 const CSV = (() => {
@@ -24,6 +28,7 @@ const CSV = (() => {
     'Format',
     'Duration',
     'Description',
+    'PicURL',
     'ShippingType',
     'ShippingService-1:Option',
     'ShippingService-1:Cost',
@@ -50,7 +55,6 @@ const CSV = (() => {
   function buildTitle(card) {
     const langTag = card.lang === 'Japanese' ? 'Japanese ' : '';
     const raw = `${card.number} ${card.name} ${langTag}SR One Piece TCG Card ${card.cond}`;
-    // eBay title max is 80 chars
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
 
@@ -69,6 +73,12 @@ const CSV = (() => {
     ].join('\n');
   }
 
+  function buildPicUrl(card) {
+    const set     = card.number.split('-')[0].toUpperCase();
+    const langTag = card.lang === 'Japanese' ? 'JP' : 'EN';
+    return `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${card.number}_${langTag}.webp`;
+  }
+
   function buildRow(card) {
     const shippingType   = card.post === 0 ? 'Free' : 'Flat';
     const shippingOption = 'AU_Regular';
@@ -85,6 +95,7 @@ const CSV = (() => {
       'FixedPriceItem',
       'GTC',
       buildDescription(card),
+      buildPicUrl(card),
       shippingType,
       shippingOption,
       shippingCost,
