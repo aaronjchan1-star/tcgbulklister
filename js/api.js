@@ -64,19 +64,23 @@ const API = (() => {
 
   function showPriceResult(result, statusEl) {
     if (!result.price) {
-      statusEl.innerHTML = `No recent AU sold listings found. <a href="${result.ebayUrl}" target="_blank" style="color:var(--amber);">Check eBay ↗</a>`;
+      statusEl.innerHTML = `No recent ungraded AU sold listings found. <a href="${result.ebayUrl}" target="_blank" style="color:var(--amber);">Check eBay ↗</a>`;
       statusEl.className = 'lookup-status err';
       return false;
     }
 
-    const range = result.lowest !== result.highest
-      ? ` (range $${result.lowest.toFixed(2)}–$${result.highest.toFixed(2)})`
+    const range    = result.lowest !== result.highest
+      ? `, range $${result.lowest.toFixed(2)}–$${result.highest.toFixed(2)}`
+      : '';
+    const filtered = result.filtered > 0
+      ? ` <span style="color:var(--text-muted);">(${result.filtered} graded excluded)</span>`
       : '';
 
     statusEl.innerHTML = `
-      Median <strong style="color:var(--text);">$${result.price.toFixed(2)} AUD</strong>
-      from ${result.count} sold listing${result.count !== 1 ? 's' : ''}${result.soldDate ? ', last sold ' + result.soldDate : ''}${range}.
-      <a href="${result.ebayUrl}" target="_blank" style="color:var(--accent); margin-left:4px;">Verify on eBay ↗</a>
+      Median <strong style="color:var(--green);">$${result.price.toFixed(2)} AUD</strong>
+      from ${result.count} ungraded listing${result.count !== 1 ? 's' : ''}
+      ${result.soldDate ? '· last sold ' + result.soldDate : ''}${range}.${filtered}
+      <a href="${result.ebayUrl}" target="_blank" style="color:var(--accent); margin-left:6px;">Verify on eBay ↗</a>
     `;
     statusEl.className = 'lookup-status ok';
     return true;
