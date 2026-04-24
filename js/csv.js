@@ -1,19 +1,18 @@
 /**
  * csv.js
- * Generates and downloads the eBay File Exchange CSV for One Piece and Pokémon.
+ * Generates eBay File Exchange CSV using Variation listings.
+ * Cards are grouped by set — one parent listing per set,
+ * each card is a variation within that listing.
+ *
+ * eBay File Exchange Variation format:
+ * - Parent row: Action=Add with full listing details, no price/qty
+ * - Child rows: Action=Add, Relationship=Variation, with price/qty/specifics
  */
 
 const CSV = (() => {
 
-  const HEADERS = [
-    'Action(SiteID=Australia|Country=AU|Currency=AUD|Version=1193)',
-    'Title', 'Category', 'ConditionID', 'Quantity',
-    'StartPrice', 'Format', 'Duration',
-    'Description', 'PicURL',
-    'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
-    'ShippingService-1:FreeShipping',
-    'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption'
-  ];
+  // eBay AU category IDs
+  const CATEGORY = { onePiece: '183454', pokemon: '2536' };
 
   const CONDITION_MAP = {
     'Near Mint':        '4000',
@@ -21,125 +20,223 @@ const CSV = (() => {
     'Moderately Played':'3000'
   };
 
-  // eBay AU category IDs
-  const CATEGORY = {
-    onePiece: '183454',  // Trading Card Games
-    pokemon:  '2536'     // Pokémon TCG
-  };
+  const OP_CDN  = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece';
+  const PKM_CDN = 'https://images.pokemontcg.io';
 
-  const OP_IMG  = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece';
-  const PKM_IMG = 'https://images.pokemontcg.io';
+  // Parent listing headers
+  const PARENT_HEADERS = [
+    'Action(SiteID=Australia|Country=AU|Currency=AUD|Version=1193)',
+    'Title', 'Category', 'ConditionID', 'Format', 'Duration',
+    'Description', 'PicURL',
+    'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
+    'ShippingService-1:FreeShipping',
+    'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption',
+    'Relationship', 'RelationshipDetails',
+    'Variation:StartPrice', 'Variation:Quantity'
+  ];
 
   function esc(value) {
-    const v = String(value);
+    const v = String(value == null ? '' : value);
     if (v.includes(',') || v.includes('"') || v.includes('\n') || v.includes('\r')) {
       return '"' + v.replace(/"/g, '""') + '"';
     }
     return v;
   }
 
-  function buildPicUrl(card) {
-    if (card.game === 'pokemon') {
-      return `${PKM_IMG}/${card.setId}/${card.number}_hires.png`;
+  function getSetId(card) {
+    if (card.game === 'onePiece') {
+      return card.number.split('-')[0].toUpperCase(); // OP01, OP15, ST07 etc
     }
-    const set     = card.number.split('-')[0].toUpperCase();
-    const langTag = card.lang === 'Japanese' ? 'JP' : 'EN';
-    return `${OP_IMG}/${set}/${card.number}_${langTag}.webp`;
+    return card.setId || 'PKM';
   }
 
-  function buildTitle(card) {
-    let raw;
-    if (card.game === 'pokemon') {
-      raw = `${card.name} ${card.number} ${card.setName} Pokemon TCG ${card.cond}`;
-    } else {
-      const langTag  = card.lang === 'Japanese' ? 'Japanese ' : '';
-      const variant  = card.variant?.label && card.variant.label !== 'Standard' ? ` ${card.variant.label}` : '';
-      // Only include name if it differs from the number
-      const nameTag  = card.name && card.name !== card.number ? ` ${card.name}` : '';
-      raw = `${card.number}${nameTag}${variant} ${langTag}SR One Piece TCG ${card.cond}`;
+  function getSetName(card) {
+    if (card.game === 'onePiece') {
+      const setId = getSetId(card);
+      // Map common set IDs to friendly names
+      const names = {
+        OP01:'Romance Dawn', OP02:'Paramount War', OP03:'Pillars of Strength',
+        OP04:'Kingdoms of Intrigue', OP05:'Awakening of the New Era',
+        OP06:'Wings of the Captain', OP07:'500 Years in the Future',
+        OP08:'Two Legends', OP09:'The Four Emperors', OP10:'Royal Blood',
+        OP11:'Memoir of Upheaval', OP12:'The Grandline Chronicles',
+        OP13:'Hero of Justice', OP14:'3D2Y', OP15:'Sealed Memories',
+        ST01:'Straw Hat Crew', ST02:'Worst Generation', ST03:'The Seven Warlords',
+        ST04:'Animal Kingdom Pirates', ST05:'Worst Generation 2',
+        ST06:'Absolute Justice', ST07:'Big Mom Pirates', ST08:'Monkey D. Luffy',
+        ST09:'Yamato', ST10:'UTA', ST11:'Uta', ST12:'Zoro & Sanji',
+        ST13:'The Three Captains', ST14:'3D2Y Luffy', ST15:'Red-Haired Pirates',
+        ST16:'Marine', ST17:'Dark Forces', ST18:'World Government', ST19:'Final Chapter'
+      };
+      return names[setId] || setId;
     }
+    return card.setName || card.setId;
+  }
+
+  function buildParentTitle(setId, setName, game, lang, cond) {
+    if (game === 'onePiece') {
+      const langTag = lang === 'Japanese' ? ' Japanese' : '';
+      const raw = `One Piece TCG ${setId} ${setName}${langTag} SR Cards ${cond}`;
+      return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
+    }
+    const raw = `Pokemon TCG ${setName} Cards ${cond}`;
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
 
-  function buildDescription(card) {
-    if (card.game === 'pokemon') {
+  function buildParentDescription(cards, setId, setName, game) {
+    const cardList = cards.map(c => {
+      const variant = c.variant?.label && c.variant.label !== 'Standard' ? ` (${c.variant.label})` : '';
+      const name    = c.name && c.name !== c.number ? ` ${c.name}` : '';
+      return `• ${c.number}${name}${variant} — $${c.price.toFixed(2)} AUD`;
+    }).join('\n');
+
+    if (game === 'onePiece') {
       return [
-        `${card.name} — ${card.setName} (${card.number})`,
-        `Pokémon Trading Card Game`,
-        `Condition: ${card.cond}`,
+        `One Piece TCG — ${setId} ${setName}`,
+        `Super Rare (SR) Cards — Near Mint / Raw (Ungraded)`,
         ``,
-        `Card is shipped securely in a protective sleeve and rigid toploader.`,
-        `Combined postage available — please request an invoice before paying if purchasing multiple cards.`,
+        `Cards available in this listing:`,
+        cardList,
+        ``,
+        `Each card is shipped securely in a protective sleeve and rigid toploader.`,
+        `Select the card you want from the variation dropdown above.`,
+        `Combined postage available — request an invoice before paying if buying multiple.`,
         ``,
         `Australian seller based in Sydney, NSW.`,
         `Fast dispatch within 3 business days of cleared payment.`
       ].join('\n');
     }
+
     return [
-      `${card.name} (${card.number})`,
-      `One Piece TCG — Super Rare (SR)`,
-      `Language: ${card.lang}`,
-      `Condition: ${card.cond}`,
+      `Pokemon TCG — ${setName}`,
+      `Cards — Near Mint / Raw (Ungraded)`,
       ``,
-      `Card is shipped securely in a protective sleeve and rigid toploader.`,
-      `Combined postage available — please request an invoice before paying if purchasing multiple cards.`,
+      `Cards available in this listing:`,
+      cardList,
+      ``,
+      `Each card is shipped securely in a protective sleeve and rigid toploader.`,
+      `Select the card you want from the variation dropdown above.`,
+      `Combined postage available — request an invoice before paying if buying multiple.`,
       ``,
       `Australian seller based in Sydney, NSW.`,
       `Fast dispatch within 3 business days of cleared payment.`
     ].join('\n');
   }
 
-  function buildRow(card) {
-    // eBay AU File Exchange: always use Flat, set cost to 0.00 for free shipping
-    const shippingType = 'Flat';
-    const shippingCost = card.post === 0 ? '0.00' : card.post.toFixed(2);
+  function getParentImage(cards) {
+    // Use first card's image as the listing thumbnail
+    const first = cards[0];
+    if (first.imageUrl) return first.imageUrl;
+    if (first.game === 'onePiece') {
+      const set     = first.number.split('-')[0].toUpperCase();
+      const suffix  = first.variant?.suffix || '';
+      const langTag = first.lang === 'Japanese' ? 'JP' : 'EN';
+      return `${OP_CDN}/${set}/${first.number}${suffix}_${langTag}.webp`;
+    }
+    return `${PKM_CDN}/${first.setId}/${first.number}_hires.png`;
+  }
 
-    return [
-      'Add',
-      buildTitle(card),
-      CATEGORY[card.game] || '183454',
-      CONDITION_MAP[card.cond] || '4000',
-      card.qty,
-      card.price.toFixed(2),
-      'FixedPriceItem',
-      'GTC',
-      buildDescription(card),
-      buildPicUrl(card),
-      shippingType,
-      'AU_Regular',
-      shippingCost,
-      card.post === 0 ? '1' : '0',
-      'Sydney, NSW',
-      '3',
-      'ReturnsNotAccepted'
-    ].map(esc).join(',');
+  function buildVariationSpecifics(card) {
+    // The variation name shown in the dropdown on eBay
+    const variant = card.variant?.label && card.variant.label !== 'Standard'
+      ? ` ${card.variant.label}` : '';
+    const name    = card.name && card.name !== card.number ? ` ${card.name}` : '';
+    return `${card.number}${name}${variant}`;
+  }
+
+  function groupBySet(items) {
+    const groups = {};
+    for (const card of items) {
+      // Group key: game + setId + language + condition
+      // (separate listings for JP vs EN, NM vs LP)
+      const key = `${card.game}|${getSetId(card)}|${card.lang || 'EN'}|${card.cond}`;
+      if (!groups[key]) groups[key] = { card, cards: [] };
+      groups[key].cards.push(card);
+    }
+    return Object.values(groups);
   }
 
   function parseCardNumber(num) {
-    // Parse "OP01-060" or "025/198" into sortable parts
     if (!num) return { set: 'ZZZ', n: 9999 };
-    // One Piece format: OP01-060, ST07-003 etc
     const opMatch = num.match(/^([A-Z]+)(\d+)-(\d+)/);
     if (opMatch) return { set: opMatch[1] + opMatch[2].padStart(4,'0'), n: parseInt(opMatch[3]) };
-    // Pokémon format: 215 or 025/198
     const pkMatch = num.match(/^(\d+)/);
     if (pkMatch) return { set: 'PKM', n: parseInt(pkMatch[1]) };
     return { set: num, n: 0 };
   }
 
-  function sortItems(items) {
-    return [...items].sort((a, b) => {
-      // Sort by game first (One Piece before Pokémon)
-      if (a.game !== b.game) return a.game === 'onePiece' ? -1 : 1;
-
-      // Then by set
+  function sortCards(cards) {
+    return [...cards].sort((a, b) => {
       const pa = parseCardNumber(a.number);
       const pb = parseCardNumber(b.number);
-      if (pa.set !== pb.set) return pa.set.localeCompare(pb.set);
-
-      // Then by number within set
       return pa.n - pb.n;
     });
+  }
+
+  function buildRows(group) {
+    const { card: firstCard, cards } = group;
+    const sorted   = sortCards(cards);
+    const setId    = getSetId(firstCard);
+    const setName  = getSetName(firstCard);
+    const game     = firstCard.game;
+    const lang     = firstCard.lang || 'EN';
+    const cond     = firstCard.cond;
+    const post     = firstCard.post || 0;
+
+    const rows = [];
+
+    // ── Parent listing row ──────────────────────────────────
+    const parentRow = [
+      'Add',
+      buildParentTitle(setId, setName, game, lang, cond),
+      CATEGORY[game] || '183454',
+      CONDITION_MAP[cond] || '4000',
+      'FixedPriceItem',
+      'GTC',
+      buildParentDescription(sorted, setId, setName, game),
+      getParentImage(sorted),
+      'Flat',
+      'AU_Regular',
+      post === 0 ? '0.00' : post.toFixed(2),
+      post === 0 ? '1' : '0',
+      'Sydney, NSW',
+      '3',
+      'ReturnsNotAccepted',
+      '',   // Relationship — blank for parent
+      '',   // RelationshipDetails — blank for parent
+      '',   // Variation:StartPrice — blank for parent
+      ''    // Variation:Quantity — blank for parent
+    ];
+    rows.push(parentRow.map(esc).join(','));
+
+    // ── Variation rows (one per card) ───────────────────────
+    for (const c of sorted) {
+      const varName = buildVariationSpecifics(c);
+      const varRow = [
+        'Add',
+        '',   // Title — blank for variation
+        '',   // Category — blank for variation
+        '',   // ConditionID — blank for variation
+        '',   // Format — blank for variation
+        '',   // Duration — blank for variation
+        '',   // Description — blank for variation
+        '',   // PicURL — blank for variation
+        '',   // ShippingType — blank for variation
+        '',   // ShippingService — blank for variation
+        '',   // ShippingCost — blank for variation
+        '',   // FreeShipping — blank for variation
+        '',   // Location — blank for variation
+        '',   // DispatchTimeMax — blank for variation
+        '',   // ReturnsAcceptedOption — blank for variation
+        'Variation',
+        varName,
+        c.price.toFixed(2),
+        c.qty
+      ];
+      rows.push(varRow.map(esc).join(','));
+    }
+
+    return rows;
   }
 
   function download() {
@@ -149,12 +246,11 @@ const CSV = (() => {
       return;
     }
 
-    // Filter out unpriced/invalid cards — eBay AU minimum price is $1.00
     const pricedItems   = rawItems.filter(c => c.price && c.price >= 1.00);
     const unpricedCount = rawItems.length - pricedItems.length;
 
     if (pricedItems.length === 0) {
-      alert('No cards have valid prices (minimum $1.00 on eBay AU). Use Claude AI Price Research or set prices manually.');
+      alert('No cards have valid prices set. Use Claude AI Price Research or set prices manually.');
       return;
     }
 
@@ -163,9 +259,13 @@ const CSV = (() => {
       if (!ok) return;
     }
 
-    const items = sortItems(pricedItems);
-    const rows = [HEADERS.join(','), ...items.map(buildRow)];
-    const csv  = rows.join('\r\n');
+    const groups = groupBySet(pricedItems);
+    const allRows = [PARENT_HEADERS.join(',')];
+    for (const group of groups) {
+      allRows.push(...buildRows(group));
+    }
+
+    const csv  = allRows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
