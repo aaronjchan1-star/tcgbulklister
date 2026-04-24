@@ -16,10 +16,13 @@
 
   <!-- API Key -->
   <div class="api-banner">
-    <strong>eBay price lookup</strong>
-    <p><p>Click "Check eBay" next to a card to open the sold listings in a new tab, then enter the price manually.</p>
-    <div class="api-status" id="api-status" style="display:none;"></div>
-    <input type="hidden" id="api-key-input" />
+    <strong>eBay App ID required for auto price lookup</strong>
+    <p>Get your free key at <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a> → My Account → Application Keys → Production App ID (Client ID). Without it, price lookup opens an eBay tab instead.</p>
+    <div class="api-row">
+      <input type="text" id="api-key-input" placeholder="Paste your eBay Production Client ID..." />
+      <button onclick="API.save()">Save</button>
+    </div>
+    <div class="api-status" id="api-status"></div>
   </div>
 
   <!-- Stats -->
@@ -173,7 +176,7 @@
     <div id="listings-list"></div>
 
     <div id="action-bar" style="display:none; margin-top:16px;">
-      <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none;">Open eBay sold search for unpriced cards</button>
+      <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none;">Fetch prices for unpriced cards</button>
       <div id="bulk-status" class="bulk-status" style="display:none;"></div>
       <button class="btn-download" onclick="CSV.download()" style="margin-top:10px;">&#8595; Download eBay CSV</button>
       <p class="hint">Upload via: eBay Seller Hub › Listings › Bulk listing upload › File Exchange</p>
