@@ -130,7 +130,8 @@ const UI = (() => {
 
     if (found.length === 1) {
       selectOPVariant(found[0]);
-      statusEl.textContent = `Found: ${number} ${found[0].label}${cardName ? ' — ' + cardName : ''} — click Add to list.`;
+      const resolvedName = document.getElementById('f-op-name').value.trim();
+      statusEl.textContent = `Found: ${number} ${found[0].label}${resolvedName ? ' — ' + resolvedName : ''} — click Add to list.`;
       statusEl.className   = 'lookup-status ok';
     } else {
       showOPPicker(number, found);
