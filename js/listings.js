@@ -281,5 +281,17 @@ const Listings = (() => {
     if (u) u.textContent = unpriced;
   }
 
-  return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, imageUrl, imageUrlFromFields };
+  function replaceAll(newItems) {
+    items = newItems.map(sanitiseCard);
+    save();
+    render();
+  }
+
+  function addAll(newItems) {
+    items = [...items, ...newItems.map(sanitiseCard)];
+    save();
+    render();
+  }
+
+  return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, replaceAll, addAll, imageUrl, imageUrlFromFields };
 })();

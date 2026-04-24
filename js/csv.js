@@ -358,5 +358,143 @@ const CSV = (() => {
     return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('');
   }
 
-  return { download };
+  /* ─── Template download ─── */
+  // Simple template — just Number and Qty
+  // Defaults: Near Mint, English, variation listing, no price (Claude will fetch)
+  // Language: leave blank for English, write "Japanese" for JP
+  // Qty: leave blank or 1 for single. Write 2/3/4 for lots (becomes standalone lot listing)
+  function downloadTemplate() {
+    const headers = ['Number', 'Qty', 'Language'];
+    const examples = [
+      ['OP01-060', '1', ''],
+      ['OP15-113', '1', ''],
+      ['OP14-031', '1', 'Japanese'],
+      ['OP13-029', '3', ''],
+      ['EB01-012', '4', ''],
+    ];
+    const notes = [
+      [''],
+      ['# HOW TO USE:'],
+      ['# Number  — card number e.g. OP01-060'],
+      ['# Qty     — quantity. Leave blank or 1 for single card. 2/3/4 = standalone lot listing'],
+      ['# Language — leave blank for English, write Japanese for JP cards'],
+      ['# Everything else (name, price, condition) is handled automatically by the site'],
+    ];
+    const rows = [headers, ...examples, ...notes].map(r => r.map(esc).join(',')).join('\r\n');
+    triggerDownload(rows, 'tcg_lister_template.csv');
+  }
+
+  /* ─── CSV import ─── */
+  function importCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text  = e.target.result;
+        const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'));
+        if (lines.length < 2) { alert('CSV appears empty or has no data rows.'); return; }
+
+        // Detect headers
+        const headerLine = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+        const hasHeaders = headerLine.includes('number');
+        const startRow   = hasHeaders ? 1 : 0;
+
+        // Column indices
+        const colNum  = hasHeaders ? headerLine.indexOf('number') : 0;
+        const colQty  = hasHeaders ? headerLine.indexOf('qty')    : 1;
+        const colLang = hasHeaders ? headerLine.indexOf('language'): 2;
+
+        const imported = [];
+        let skipped    = 0;
+
+        for (let i = startRow; i < lines.length; i++) {
+          const vals   = parseCSVLine(lines[i]);
+          if (vals.every(v => !v.trim())) continue;
+
+          const number = (vals[colNum]  || '').trim().toUpperCase();
+          const qtyRaw = parseInt(vals[colQty] || '1') || 1;
+          const lang   = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
+
+          if (!number || !number.includes('-')) { skipped++; continue; }
+
+          // qty > 1 = standalone lot listing, qty = 1 = variation (set listing)
+          const listingType = qtyRaw > 1 ? 'lot' : 'variation';
+
+          imported.push({
+            game:        'onePiece',
+            number,
+            name:        number,   // placeholder — will be enriched by card name API
+            lang,
+            cond:        'Near Mint',
+            qty:         qtyRaw,
+            price:       0,        // unpriced — Claude will fetch
+            post:        0,
+            listingType,
+            variant:     { suffix: '', label: 'SR' },
+            imageUrl:    null
+          });
+        }
+
+        if (imported.length === 0) {
+          alert('No valid cards found. Make sure each row has a card number like OP01-060.');
+          return;
+        }
+
+        const existing = Listings.getAll();
+        if (existing.length > 0) {
+          const choice = confirm(
+            `You have ${existing.length} existing card${existing.length !== 1 ? 's' : ''}.\n\n` +
+            `OK = Add ${imported.length} imported cards to existing list\n` +
+            `Cancel = Replace existing list with imported cards`
+          );
+          if (choice) Listings.addAll(imported);
+          else        Listings.replaceAll(imported);
+        } else {
+          Listings.replaceAll(imported);
+        }
+
+        const msg = `Imported ${imported.length} card${imported.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — invalid format)` : ''}.\n\nUse "Research prices for all unpriced cards" to fetch prices via Claude.`;
+        alert(msg);
+
+      } catch(err) {
+        alert('Import failed: ' + err.message);
+      }
+      input.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  function parseCSVLine(line) {
+    const result = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        result.push(cur); cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur);
+    return result;
+  }
+
+  function triggerDownload(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return { download, downloadTemplate, importCSV };
 })();
