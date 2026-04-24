@@ -8,7 +8,7 @@ const CSV = (() => {
   const HEADERS = [
     'Action(SiteID=Australia|Country=AU|Currency=AUD|Version=1193)',
     'Title', 'Category', 'ConditionID', 'Quantity',
-    'StartPrice', 'BuyItNowPrice', 'Format', 'Duration',
+    'StartPrice', 'Format', 'Duration',
     'Description', 'PicURL',
     'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
     'ShippingService-1:FreeShipping',
@@ -50,10 +50,13 @@ const CSV = (() => {
   function buildTitle(card) {
     let raw;
     if (card.game === 'pokemon') {
-      raw = `${card.name} ${card.number} ${card.setName} Pokémon TCG ${card.cond}`;
+      raw = `${card.name} ${card.number} ${card.setName} Pokemon TCG ${card.cond}`;
     } else {
-      const langTag = card.lang === 'Japanese' ? 'Japanese ' : '';
-      raw = `${card.number} ${card.name} ${langTag}SR One Piece TCG ${card.cond}`;
+      const langTag  = card.lang === 'Japanese' ? 'Japanese ' : '';
+      const variant  = card.variant?.label && card.variant.label !== 'Standard' ? ` ${card.variant.label}` : '';
+      // Only include name if it differs from the number
+      const nameTag  = card.name && card.name !== card.number ? ` ${card.name}` : '';
+      raw = `${card.number}${nameTag}${variant} ${langTag}SR One Piece TCG ${card.cond}`;
     }
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
@@ -97,7 +100,6 @@ const CSV = (() => {
       CATEGORY[card.game] || '183454',
       CONDITION_MAP[card.cond] || '4000',
       card.qty,
-      card.price.toFixed(2),
       card.price.toFixed(2),
       'FixedPriceItem',
       'GTC',
