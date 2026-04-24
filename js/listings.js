@@ -11,6 +11,17 @@ const Listings = (() => {
   let items       = [];
   let currentGame = 'onePiece';
 
+  // Strip parenthetical set codes from stored names e.g. "Nami (OP14" → "Nami"
+  function cleanName(name) {
+    if (!name) return '';
+    return name.replace(/\s*\(.*$/, '').trim();
+  }
+
+  function sanitiseCard(card) {
+    if (card.name) card.name = cleanName(card.name);
+    return card;
+  }
+
   function setGame(game) { currentGame = game; }
   function getGame()     { return currentGame; }
 
@@ -92,7 +103,7 @@ const Listings = (() => {
       };
     }
 
-    items.push(card);
+    items.push(sanitiseCard(card));
     clearForm();
     save();
     render();
@@ -150,7 +161,7 @@ const Listings = (() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        items = JSON.parse(raw);
+        items = JSON.parse(raw).map(sanitiseCard);
         render();
         if (items.length > 0) showSaveStatus(`Loaded ${items.length} card${items.length !== 1 ? 's' : ''} from last session`);
       }
@@ -227,7 +238,7 @@ const Listings = (() => {
           <img class="card-thumb" src="${imageUrl(l)}" alt="${l.name}" onerror="this.style.display='none'" />
           <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
           <span class="mono">${displayNumber(l)}</span>
-          <span class="listing-name" title="${l.name}">${l.name}</span>
+          <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond}</span>
           <span class="muted">${l.qty}</span>
