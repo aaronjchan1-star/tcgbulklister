@@ -41,6 +41,7 @@ const CSV = (() => {
     'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
     'ShippingService-1:FreeShipping',
     'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption',
+    'C:Game', 'C:Card Condition',
     'Relationship', 'RelationshipDetails'
   ];
 
@@ -142,6 +143,19 @@ const CSV = (() => {
     });
   }
 
+  function ebayGame(game) {
+    return game === 'onePiece' ? 'One Piece Card Game' : 'Pokemon TCG';
+  }
+
+  function ebayCardCondition(cond) {
+    const map = {
+      'Near Mint':        'Near Mint or Better',
+      'Lightly Played':   'Lightly Played',
+      'Moderately Played':'Moderately Played'
+    };
+    return map[cond] || 'Near Mint or Better';
+  }
+
   /* ─── Build CSV rows for one group ─── */
   function buildGroupRows(group) {
     const { meta, cards } = group;
@@ -176,8 +190,10 @@ const CSV = (() => {
       'Sydney, NSW',
       '3',
       'ReturnsNotAccepted',
+      ebayGame(meta.game),          // C:Game
+      ebayCardCondition(meta.cond), // C:Card Condition
       '',               // Relationship — blank on parent
-      parentRelDetails  // RelationshipDetails — pipe list
+      parentRelDetails  // RelationshipDetails — semicolon list
     ].map(esc).join(','));
 
     /* Variation child rows — Action must be BLANK on child rows, not 'Add' */
@@ -190,6 +206,7 @@ const CSV = (() => {
         '', '', '', '',       // Format, Duration, Description, PicURL — blank
         '', '', '', '',       // Shipping fields — blank
         '', '', '',           // Location, Dispatch, Returns — blank
+        '', '',               // C:Game, C:Card Condition — blank on children
         'Variation',          // Relationship
         `Card=${allVarNames[i]}`  // RelationshipDetails = "Card=OP15-001 Luffy SR"
       ].map(esc).join(','));
