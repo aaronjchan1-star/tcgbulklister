@@ -61,23 +61,28 @@ const Listings = (() => {
       const name    = document.getElementById('f-op-name').value.trim();
       const lang    = document.getElementById('f-op-lang').value;
       const cond    = document.getElementById('f-op-cond').value;
-      const qty     = parseInt(document.getElementById('f-op-qty').value) || 1;
-      const variant = UI.getSelectedOPVariant();
+      const qty         = parseInt(document.getElementById('f-op-qty').value) || 1;
+      const rarity      = document.getElementById('f-op-rarity')?.value || 'SR';
+      const listingType = document.getElementById('type-lot')?.classList.contains('active') ? 'lot' : 'variation';
+      const variant     = UI.getSelectedOPVariant();
 
       if (!number) { alert('Please enter a card number (e.g. OP05-119).'); return; }
-      if (!variant) { alert('Press Enter to search for the card first.'); return; }
+      // Lot listings don't need variant image search — allow adding without it
+      if (listingType === 'variation' && !variant) { alert('Press Enter to search for the card first.'); return; }
 
       card = {
         game: 'onePiece',
         number,
-        name: name || number,  // fall back to card number if name not yet populated
+        name: name || number,
         lang,
         cond,
         qty,
         price,
         post,
-        variant: { suffix: variant.suffix, label: variant.label },
-        imageUrl: variant.url
+        rarity,
+        listingType,
+        variant: variant ? { suffix: variant.suffix, label: variant.label } : { suffix: '', label: rarity },
+        imageUrl: variant?.url || null
       };
 
     } else {

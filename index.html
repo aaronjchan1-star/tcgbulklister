@@ -91,6 +91,30 @@
           <label>Qty</label>
           <input type="number" id="f-op-qty" value="1" min="1" max="99" />
         </div>
+        <div class="field">
+          <label>Rarity</label>
+          <select id="f-op-rarity">
+            <option value="SR">SR</option>
+            <option value="R">R</option>
+            <option value="UC">UC</option>
+            <option value="C">C</option>
+            <option value="SEC">SEC</option>
+            <option value="SE">SE</option>
+            <option value="L">L</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Listing type toggle -->
+      <div class="listing-type-row" style="margin-bottom:12px;">
+        <label style="font-size:12px; color:var(--text-muted); margin-bottom:6px; display:block;">Listing type</label>
+        <div style="display:flex; gap:6px;">
+          <button class="type-btn active" id="type-variation" onclick="UI.setListingType('variation')">Add to set listing</button>
+          <button class="type-btn" id="type-lot" onclick="UI.setListingType('lot')">Standalone lot</button>
+        </div>
+        <div id="lot-label-wrap" style="display:none; margin-top:8px; font-size:12px; color:var(--text-muted);">
+          Title preview: <span id="lot-title-preview" style="color:var(--text);">—</span>
+        </div>
       </div>
 
       <!-- One Piece variant picker -->

@@ -452,3 +452,26 @@ input:focus, select:focus {
   box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
 }
 .price-inline:hover { border-color: var(--border-md); }
+
+/* ─── Listing type toggle ─── */
+.type-btn {
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border-md);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.type-btn.active {
+  background: #e8e8e8;
+  color: #0f0f0f;
+  border-color: #e8e8e8;
+}
+.type-btn:hover:not(.active) {
+  color: var(--text);
+  border-color: var(--border-md);
+}

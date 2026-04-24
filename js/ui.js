@@ -349,8 +349,29 @@ const UI = (() => {
 
   window.addEventListener('DOMContentLoaded', init);
 
+  let currentListingType = 'variation';
+
+  function setListingType(type) {
+    currentListingType = type;
+    document.getElementById('type-variation').classList.toggle('active', type === 'variation');
+    document.getElementById('type-lot').classList.toggle('active', type === 'lot');
+    document.getElementById('lot-label-wrap').style.display = type === 'lot' ? 'block' : 'none';
+    updateLotPreview();
+  }
+
+  function updateLotPreview() {
+    const number = document.getElementById('f-op-number').value.trim().toUpperCase();
+    const name   = document.getElementById('f-op-name').value.trim();
+    const qty    = document.getElementById('f-op-qty').value || '1';
+    const rarity = document.getElementById('f-op-rarity')?.value || 'SR';
+    const preview = document.getElementById('lot-title-preview');
+    if (!preview) return;
+    const displayName = (name || number) || '...';
+    preview.textContent = qty > 1 ? `${qty}x ${number} ${displayName} ${rarity}` : `${number} ${displayName} ${rarity}`;
+  }
+
   return {
-    setGame, toggleCustomPost,
+    setGame, toggleCustomPost, setListingType,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
     searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard,
     updatePokemonPreview: () => {}

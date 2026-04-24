@@ -256,6 +256,51 @@ const CSV = (() => {
   }
 
   /* ─── Download ─── */
+  function buildStandaloneLotRow(card) {
+    const name    = cleanName(card.name);
+    const qtyStr  = card.qty > 1 ? `${card.qty}x ` : '';
+    const rarity  = card.rarity || card.variant?.label || 'SR';
+    const lang    = card.lang === 'Japanese' ? ' Japanese' : '';
+    const raw     = `${qtyStr}${card.number} ${name || card.number} ${rarity}${lang} One Piece TCG ${card.cond}`;
+    const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
+    const imgUrl  = getCardImageUrl(card);
+    const post    = card.post || 0;
+
+    return [
+      'Add',
+      title,
+      CATEGORY[card.game] || '183454',
+      CONDITION_MAP[card.cond] || '4000',
+      card.price.toFixed(2),
+      card.qty,
+      'FixedPriceItem',
+      'GTC',
+      [
+        `${name || card.number} (${card.number})`,
+        `One Piece TCG — ${rarity}`,
+        `Language: ${card.lang}`,
+        `Condition: ${card.cond}`,
+        `Quantity: ${card.qty}`,
+        '',
+        'Card is shipped securely in a protective sleeve and rigid toploader.',
+        'Australian seller based in Sydney, NSW.',
+        'Fast dispatch within 3 business days of cleared payment.'
+      ].join('\n'),
+      imgUrl,
+      'Flat',
+      'AU_Regular',
+      post === 0 ? '0.00' : post.toFixed(2),
+      post === 0 ? '1' : '0',
+      'Sydney, NSW',
+      '3',
+      'ReturnsNotAccepted',
+      ebayGame(card.game),
+      ebayCardCondition(card.cond),
+      '',  // Relationship
+      ''   // RelationshipDetails
+    ].map(esc).join(',');
+  }
+
   function download() {
     const rawItems = Listings.getAll();
     if (rawItems.length === 0) { alert('Add at least one card before downloading.'); return; }
@@ -273,9 +318,29 @@ const CSV = (() => {
       if (!ok) return;
     }
 
-    const groups  = groupBySet(pricedItems);
+    // Split into variation listing vs standalone lot listings
+    const variationItems = pricedItems.filter(c => c.listingType !== 'lot');
+    const lotItems       = pricedItems.filter(c => c.listingType === 'lot');
+
     const allRows = [HEADERS.join(',')];
-    groups.forEach(g => allRows.push(...buildGroupRows(g)));
+
+    // Variation listing (grouped)
+    if (variationItems.length > 0) {
+      const groups = groupBySet(variationItems);
+      groups.forEach(g => allRows.push(...buildGroupRows(g)));
+    }
+
+    // Standalone lot listings (one row each, sorted by set then number)
+    if (lotItems.length > 0) {
+      const sortedLots = [...lotItems].sort((a, b) => {
+        const sa = a.number.split('-')[0], sb = b.number.split('-')[0];
+        if (sa !== sb) return sa.localeCompare(sb);
+        const na = parseInt(a.number.split('-')[1]) || 0;
+        const nb = parseInt(b.number.split('-')[1]) || 0;
+        return na - nb;
+      });
+      sortedLots.forEach(c => allRows.push(buildStandaloneLotRow(c)));
+    }
 
     const csv  = allRows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
