@@ -1,12 +1,20 @@
 /**
  * api.js
- * eBay Finding API — single and bulk last sold price lookup.
+ * eBay Finding API — last sold price lookup.
+ * Uses corsproxy.io as the CORS proxy (more reliable than allorigins).
+ * Falls back to allorigins if first proxy fails.
  */
 
 const API = (() => {
   const STORAGE_KEY      = 'ebay_app_id';
-  const PROXY            = 'https://api.allorigins.win/get?url=';
   const FINDING_ENDPOINT = 'https://svcs.ebay.com/services/search/FindingService/v1';
+
+  // Multiple proxies to try in order
+  const PROXIES = [
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
 
   let appId = localStorage.getItem(STORAGE_KEY) || '';
 
@@ -24,10 +32,8 @@ const API = (() => {
     statusEl.className   = 'api-status ok';
   }
 
-  async function fetchPrice(keywords, categoryId) {
-    if (!appId) throw new Error('No API key saved.');
-
-    const findingUrl = [
+  function buildFindingUrl(keywords, categoryId) {
+    return [
       FINDING_ENDPOINT,
       '?OPERATION-NAME=findCompletedItems',
       '&SERVICE-VERSION=1.0.0',
@@ -44,24 +50,49 @@ const API = (() => {
       '&sortOrder=EndTimeSoonest',
       '&paginationInput.entriesPerPage=5'
     ].join('');
+  }
 
-    const res = await fetch(PROXY + encodeURIComponent(findingUrl));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  async function tryFetch(findingUrl) {
+    for (let i = 0; i < PROXIES.length; i++) {
+      try {
+        const proxyUrl = PROXIES[i](findingUrl);
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
 
-    const outer = await res.json();
-    const data  = JSON.parse(outer.contents);
-    const root  = data?.findCompletedItemsResponse?.[0];
-    const ack   = root?.ack?.[0];
+        const text = await res.text();
+        let jsonText = text;
 
-    if (ack !== 'Success') {
-      const errMsg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay error';
-      throw new Error(errMsg);
+        // allorigins wraps in {contents: "..."}
+        try {
+          const outer = JSON.parse(text);
+          if (outer.contents) jsonText = outer.contents;
+        } catch(e) { /* not wrapped, use raw */ }
+
+        const data = JSON.parse(jsonText);
+        const root = data?.findCompletedItemsResponse?.[0];
+        const ack  = root?.ack?.[0];
+
+        if (ack === 'Success') return root;
+        if (ack === 'Failure') {
+          const msg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay API error';
+          throw new Error(msg);
+        }
+      } catch(err) {
+        if (err.message && !err.message.includes('fetch')) throw err; // real eBay error, don't retry
+        if (i === PROXIES.length - 1) throw new Error('All proxies failed — try again shortly.');
+      }
     }
+  }
 
-    const soldItems = root?.searchResult?.[0]?.item;
-    if (!soldItems || soldItems.length === 0) return null;
+  async function fetchPrice(keywords, categoryId) {
+    if (!appId) throw new Error('No API key saved.');
+    const findingUrl = buildFindingUrl(keywords, categoryId);
+    const root = await tryFetch(findingUrl);
 
-    const prices = soldItems
+    const items = root?.searchResult?.[0]?.item;
+    if (!items || items.length === 0) return null;
+
+    const prices = items
       .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__))
       .filter(p => !isNaN(p) && p > 0)
       .sort((a, b) => a - b);
@@ -73,10 +104,10 @@ const API = (() => {
     if (card.game === 'onePiece') {
       return `${card.number} One Piece TCG SR ${card.lang}`;
     }
-    return `${card.name} ${card.setName} ${card.number} Pokémon TCG`.trim();
+    return `${card.name} ${card.setName} ${card.number} Pokemon TCG`.trim();
   }
 
-  /* ─── Single lookup (from form) ─── */
+  /* ─── Single lookup from form ─── */
   async function lookup() {
     const game = Listings.getGame();
     let keywords, statusEl, labelEl, btn, categoryId;
@@ -94,14 +125,15 @@ const API = (() => {
       labelEl    = document.getElementById('lookup-label');
       btn        = document.getElementById('btn-lookup');
     } else {
-      const setName = document.getElementById('f-pk-set').selectedOptions[0]?.text || '';
-      const number  = document.getElementById('f-pk-number').value.trim();
-      const name    = document.getElementById('f-pk-name').value.trim();
+      const selected = UI.getSelectedPokemonCard();
+      const setName  = selected?.set?.name || '';
+      const number   = document.getElementById('f-pk-number').value.trim();
+      const name     = document.getElementById('f-pk-name').value.trim();
       if (!number) {
-        setStatus('pk-lookup-status', 'Enter a card number first.', 'err');
+        setStatus('pk-lookup-status', 'Search for a card first.', 'err');
         return;
       }
-      keywords   = `${name} ${setName} ${number} Pokémon TCG`.trim();
+      keywords   = `${name} ${setName} ${number} Pokemon TCG`.trim();
       categoryId = '2536';
       statusEl   = document.getElementById('pk-lookup-status');
       labelEl    = null;
@@ -116,13 +148,13 @@ const API = (() => {
 
     if (btn)     btn.disabled        = true;
     if (labelEl) labelEl.textContent = 'Fetching...';
-    statusEl.textContent = '';
+    statusEl.textContent = 'Fetching sold listings...';
     statusEl.className   = 'lookup-status';
 
     try {
       const median = await fetchPrice(keywords, categoryId);
       if (median === null) {
-        statusEl.textContent = 'No recent sold listings found.';
+        statusEl.textContent = 'No recent AU sold listings found.';
         statusEl.className   = 'lookup-status err';
       } else {
         document.getElementById('f-price').value = median.toFixed(2);
@@ -140,23 +172,17 @@ const API = (() => {
 
   /* ─── Bulk price fetch ─── */
   async function bulkFetch() {
-    if (!appId) {
-      alert('Paste your eBay API key first.');
-      return;
-    }
+    if (!appId) { alert('Paste your eBay API key first.'); return; }
 
-    const items     = Listings.getItems();
-    const unpriced  = items.map((c, i) => ({ card: c, index: i }))
-                           .filter(({ card }) => !card.price || card.price === 0);
+    const items    = Listings.getItems();
+    const unpriced = items.map((c, i) => ({ card: c, index: i }))
+                          .filter(({ card }) => !card.price || card.price === 0);
 
-    if (unpriced.length === 0) {
-      alert('All cards already have prices.');
-      return;
-    }
+    if (unpriced.length === 0) { alert('All cards already have prices.'); return; }
 
-    const btn       = document.getElementById('bulk-fetch-btn');
-    const statusEl  = document.getElementById('bulk-status');
-    btn.disabled    = true;
+    const btn      = document.getElementById('bulk-fetch-btn');
+    const statusEl = document.getElementById('bulk-status');
+    btn.disabled   = true;
     statusEl.style.display = 'block';
 
     let success = 0, failed = 0;
@@ -169,7 +195,6 @@ const API = (() => {
         const keywords   = buildKeywords(card);
         const categoryId = card.game === 'pokemon' ? '2536' : '183454';
         const median     = await fetchPrice(keywords, categoryId);
-
         if (median !== null) {
           Listings.updatePrice(index, median);
           success++;
@@ -180,19 +205,13 @@ const API = (() => {
         failed++;
       }
 
-      // Delay between requests to avoid rate limiting
-      if (i < unpriced.length - 1) {
-        await new Promise(r => setTimeout(r, 600));
-      }
+      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 800));
     }
 
     statusEl.textContent = `Done — ${success} priced, ${failed} not found.`;
     btn.disabled = false;
-
-    // Refresh render to show new prices
     Listings.render();
-
-    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+    setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
   }
 
   function setStatus(elId, msg, type) {

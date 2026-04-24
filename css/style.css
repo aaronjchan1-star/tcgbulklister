@@ -302,3 +302,63 @@ input:focus, select:focus {
 @media (max-width: 700px) {
   .stats { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── Pokémon card picker ─── */
+.pk-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-row);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.pk-picker-card {
+  cursor: pointer;
+  text-align: center;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--bg-input);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pk-picker-card:hover { border-color: var(--border-md); background: #2a2a2a; }
+.pk-picker-card.selected { border-color: var(--accent); background: #1a2035; }
+
+.pk-picker-card img {
+  width: 88px;
+  height: auto;
+  border-radius: 5px;
+  display: block;
+  margin: 0 auto 6px;
+}
+
+.pk-card-name {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pk-card-set {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pk-card-num {
+  font-size: 10px;
+  color: var(--text-hint);
+  margin-top: 2px;
+  font-family: 'SF Mono', monospace;
+}
+
+.row-4 { grid-template-columns: 1.2fr 1.4fr 0.9fr 0.5fr; }

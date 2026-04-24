@@ -21,6 +21,8 @@ const Listings = (() => {
   }
 
   function imageUrl(item) {
+    // Use stored imageUrl if available (Pokémon from API)
+    if (item.imageUrl) return item.imageUrl;
     if (item.game === 'pokemon') {
       return `${PKM_IMG}/${item.setId}/${item.number}_hires.png`;
     }
@@ -30,12 +32,7 @@ const Listings = (() => {
   }
 
   function imageUrlFromFields(game) {
-    if (game === 'pokemon') {
-      const setId  = document.getElementById('f-pk-set').value;
-      const number = document.getElementById('f-pk-number').value.trim();
-      if (!setId || !number) return null;
-      return `${PKM_IMG}/${setId}/${number}_hires.png`;
-    }
+    if (game === 'pokemon') return null; // Pokémon now uses API search
     const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
     const lang    = document.getElementById('f-op-lang').value;
     if (!number || !number.includes('-')) return null;
@@ -60,15 +57,26 @@ const Listings = (() => {
       card = { game: 'onePiece', number, name, lang, cond, qty, price, post };
 
     } else {
-      const setId   = document.getElementById('f-pk-set').value;
-      const setName = document.getElementById('f-pk-set').selectedOptions[0]?.text || setId;
-      const number  = document.getElementById('f-pk-number').value.trim();
-      const name    = document.getElementById('f-pk-name').value.trim();
-      const cond    = document.getElementById('f-pk-cond').value;
-      const qty     = parseInt(document.getElementById('f-pk-qty').value) || 1;
-      if (!number) { alert('Please enter the card number (e.g. 215).'); return; }
-      if (!name)   { alert('Please enter the card name.'); return; }
-      card = { game: 'pokemon', setId, setName, number, name, lang: 'English', cond, qty, price, post };
+      const selected = UI.getSelectedPokemonCard();
+      if (!selected) { alert('Search for a card first, then click the correct image.'); return; }
+      const name = document.getElementById('f-pk-name').value.trim() || selected.name;
+      const cond = document.getElementById('f-pk-cond').value;
+      const qty  = parseInt(document.getElementById('f-pk-qty').value) || 1;
+      const printedNum = `${selected.number}/${selected.set.printedTotal || selected.set.total}`;
+      card = {
+        game:      'pokemon',
+        setId:     selected.set.id,
+        setName:   selected.set.name,
+        number:    selected.number,
+        printedNumber: printedNum,
+        name,
+        imageUrl:  selected.images?.large || selected.images?.small || '',
+        lang:      'English',
+        cond,
+        qty,
+        price,
+        post
+      };
     }
 
     items.push(card);
@@ -87,10 +95,12 @@ const Listings = (() => {
       document.getElementById('f-op-number').focus();
     } else {
       document.getElementById('f-pk-number').value = '';
-      document.getElementById('f-pk-name').value   = '';
       document.getElementById('f-pk-qty').value    = '1';
+      document.getElementById('pk-card-picker').style.display = 'none';
+      document.getElementById('pk-card-grid').innerHTML        = '';
       document.getElementById('pk-card-preview').style.display = 'none';
       document.getElementById('pk-lookup-status').textContent  = '';
+      document.getElementById('f-pk-name').value               = '';
       document.getElementById('f-pk-number').focus();
     }
     document.getElementById('f-price').value = '';
@@ -108,18 +118,15 @@ const Listings = (() => {
     render();
   }
 
-  function getAll()    { return items; }
-  function getItems()  { return items; }
+  function getAll()   { return items; }
+  function getItems() { return items; }
 
   /* ─── Save / Load ─── */
-
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
       showSaveStatus('List saved');
-    } catch(e) {
-      console.warn('Could not save to localStorage:', e);
-    }
+    } catch(e) { console.warn('Save failed:', e); }
   }
 
   function load() {
@@ -128,16 +135,14 @@ const Listings = (() => {
       if (raw) {
         items = JSON.parse(raw);
         render();
-        showSaveStatus(`Loaded ${items.length} card${items.length !== 1 ? 's' : ''} from last session`);
+        if (items.length > 0) showSaveStatus(`Loaded ${items.length} card${items.length !== 1 ? 's' : ''} from last session`);
       }
-    } catch(e) {
-      console.warn('Could not load from localStorage:', e);
-    }
+    } catch(e) { console.warn('Load failed:', e); }
   }
 
   function clearAll() {
     if (items.length === 0) return;
-    if (!confirm(`Clear all ${items.length} listings? This cannot be undone.`)) return;
+    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     items = [];
     localStorage.removeItem(STORAGE_KEY);
     render();
@@ -147,25 +152,27 @@ const Listings = (() => {
   function showSaveStatus(msg) {
     const el = document.getElementById('save-status');
     if (!el) return;
-    el.textContent = msg;
+    el.textContent  = msg;
     el.style.opacity = '1';
-    clearTimeout(el._timeout);
-    el._timeout = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
   }
 
   /* ─── Render ─── */
+  function gameLabel(item)      { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
+  function gameBadgeClass(item) { return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
 
-  function gameLabel(item)     { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
-  function gameBadgeClass(item){ return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
   function subLabel(item) {
-    if (item.game === 'pokemon') return item.setName;
+    if (item.game === 'pokemon') return item.setName || item.setId;
     return item.lang === 'Japanese' ? 'JP' : 'EN';
   }
 
-  function priceCell(item, i) {
-    if (item.price === 0 || !item.price) {
-      return `<span class="price-missing" title="Price not set">—</span>`;
-    }
+  function displayNumber(item) {
+    return item.game === 'pokemon' ? (item.printedNumber || item.number) : item.number;
+  }
+
+  function priceCell(item) {
+    if (!item.price || item.price === 0) return `<span class="price-missing">—</span>`;
     return `<span>$${item.price.toFixed(2)}</span>`;
   }
 
@@ -177,50 +184,44 @@ const Listings = (() => {
 
     if (items.length === 0) {
       empty.style.display = 'block';
-      list.innerHTML = '';
-      bar.style.display = 'none';
+      list.innerHTML      = '';
+      bar.style.display   = 'none';
     } else {
       empty.style.display = 'none';
       bar.style.display   = 'block';
-
       list.innerHTML = items.map((l, i) => `
         <div class="listing-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''}">
-          <img class="card-thumb" src="${imageUrl(l)}" alt="${l.number}" onerror="this.style.display='none'" />
+          <img class="card-thumb" src="${imageUrl(l)}" alt="${l.name}" onerror="this.style.display='none'" />
           <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
-          <span class="mono">${l.number}</span>
+          <span class="mono">${displayNumber(l)}</span>
           <span class="listing-name" title="${l.name}">${l.name}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond}</span>
           <span class="muted">${l.qty}</span>
-          ${priceCell(l, i)}
+          ${priceCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
           <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
         </div>
       `).join('');
 
-      // Show/hide bulk fetch button based on unpriced count
       const bulkBtn = document.getElementById('bulk-fetch-btn');
       if (bulkBtn) {
         bulkBtn.style.display = unpricedCount > 0 ? 'block' : 'none';
         bulkBtn.textContent   = `Fetch prices for ${unpricedCount} unpriced card${unpricedCount !== 1 ? 's' : ''}`;
       }
     }
-
     updateStats();
   }
 
   function updateStats() {
-    const totalUnits  = items.reduce((s, l) => s + l.qty, 0);
-    const totalVal    = items.reduce((s, l) => s + (l.price || 0) * l.qty, 0);
-    const unpriced    = items.filter(l => !l.price || l.price === 0).length;
-
+    const totalUnits = items.reduce((s, l) => s + l.qty, 0);
+    const totalVal   = items.reduce((s, l) => s + (l.price || 0) * l.qty, 0);
+    const unpriced   = items.filter(l => !l.price || l.price === 0).length;
     document.getElementById('stat-count').textContent   = totalUnits;
     document.getElementById('stat-total').textContent   = '$' + totalVal.toFixed(2);
-    document.getElementById('stat-avg').textContent     = totalUnits > 0
-      ? '$' + (totalVal / totalUnits).toFixed(2) : '—';
-
-    const unpricedStat = document.getElementById('stat-unpriced');
-    if (unpricedStat) unpricedStat.textContent = unpriced;
+    document.getElementById('stat-avg').textContent     = totalUnits > 0 ? '$' + (totalVal / totalUnits).toFixed(2) : '—';
+    const u = document.getElementById('stat-unpriced');
+    if (u) u.textContent = unpriced;
   }
 
   return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, imageUrl, imageUrlFromFields };
