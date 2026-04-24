@@ -169,14 +169,15 @@ const CSV = (() => {
   }
 
   function getCardImageUrl(card) {
-    if (card.imageUrl) return card.imageUrl;
-    if (card.game === 'onePiece') {
-      const set    = card.number.split('-')[0].toUpperCase();
-      const suffix = card.variant?.suffix || '';
-      const lang   = card.lang === 'Japanese' ? 'JP' : 'EN';
-      return `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${card.number}${suffix}_${lang}.webp`;
+    if (card.game === 'pokemon') {
+      // Pokemon TCG API serves PNG — eBay compatible
+      if (card.imageUrl) return card.imageUrl;
+      return `https://images.pokemontcg.io/${card.setId}/${card.number}_hires.png`;
     }
-    return `https://images.pokemontcg.io/${card.setId}/${card.number}_hires.png`;
+    // One Piece: use official Bandai CDN which serves PNG — eBay compatible
+    // Format: https://en.onepiece-cardgame.com/images/cardlist/card/OP15-060.png
+    const number = card.number.toUpperCase();
+    return `https://en.onepiece-cardgame.com/images/cardlist/card/${number}.png`;
   }
 
   /* ─── Build CSV rows for one group ─── */
@@ -222,17 +223,13 @@ const CSV = (() => {
     /* Variation child rows — Action must be BLANK on child rows, not 'Add' */
     sorted.forEach((c, i) => {
       const varName = allVarNames[i];
-      const imgUrl  = getCardImageUrl(c);
-      // Per-variation PicURL format: "Card=VariationName=ImageURL"
-      const varPicUrl = `Card=${varName}=${imgUrl}`;
 
       rows.push([
         '',   // Action — blank for variation rows
         '', '', '', // Title, Category, ConditionID — blank
         c.price.toFixed(2),   // StartPrice
         c.qty,                // Quantity
-        '', '', '',           // Format, Duration, Description — blank
-        varPicUrl,            // PicURL — "Card=VarName=ImageURL" for per-variation photo
+        '', '', '', '',       // Format, Duration, Description, PicURL — blank on children
         '', '', '', '',       // Shipping fields — blank
         '', '', '',           // Location, Dispatch, Returns — blank
         '', '',               // C:Game, C:Card Condition — blank on children
