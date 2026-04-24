@@ -80,8 +80,10 @@ const CSV = (() => {
   function variationName(card) {
     const hasName  = card.name && card.name !== card.number && card.name.trim() !== '';
     const namePart = hasName ? ` ${card.name}` : '';
-    const variant  = card.variant?.label && card.variant.label !== 'Standard'
-      ? ` ${card.variant.label}` : ' SR';
+    // Only add variant label for special variants (SEC Gold etc), skip SR — it's implied
+    const variant  = card.variant?.label && card.variant.label !== 'Standard' && card.variant.label !== 'SR'
+      ? ` ${card.variant.label}` : '';
+    // Drop the set code from the end — just "EB04-013 Carrot" not "EB04-013 Carrot (EB04 SR"
     return `${card.number}${namePart}${variant}`.substring(0, 65);
   }
 
@@ -223,7 +225,10 @@ const CSV = (() => {
     /* Variation child rows — Action must be BLANK on child rows, not 'Add' */
     sorted.forEach((c, i) => {
       const varName = allVarNames[i];
-      const imgUrl  = getCardImageUrl(c); // plain URL, no Card=Name= prefix
+      const imgUrl    = getCardImageUrl(c);
+      // eBay variation PicURL format: "VariationValue=ImageURL"
+      // This tells eBay which photo to show when buyer selects this variation
+      const varPicUrl = `${varName}=${imgUrl}`;
 
       rows.push([
         '',   // Action — blank for variation rows
@@ -231,7 +236,7 @@ const CSV = (() => {
         c.price.toFixed(2),   // StartPrice
         c.qty,                // Quantity
         '', '', '',           // Format, Duration, Description — blank
-        imgUrl,               // PicURL — plain image URL for this variation
+        varPicUrl,            // PicURL — "VarName=ImageURL" switches photo per selection
         '', '', '', '',       // Shipping fields — blank
         '', '', '',           // Location, Dispatch, Returns — blank
         '', '',               // C:Game, C:Card Condition — blank on children
