@@ -372,17 +372,28 @@ const CSV = (() => {
       ['OP13-029', '3', '', 'lot'],
       ['EB01-012', '4', '', 'lot'],
     ];
+    // Notes go in column F (index 5) so they don't interfere with data columns A-D
     const notes = [
-      [''],
-      ['# HOW TO USE:'],
-      ['# Number       — card number e.g. OP01-060'],
-      ['# Qty          — how many copies you have. 3 copies of an SR = qty 3'],
-      ['# Language     — leave blank for English. Write Japanese for JP cards'],
-      ['# Listing Type — set = add to the set variation listing (default)'],
-      ['#                lot = standalone bundle listing (e.g. 3x Nami lot)'],
-      ['# Everything else (name price condition) is handled automatically'],
+      ['', '', '', '', '', 'HOW TO USE:'],
+      ['', '', '', '', '', 'Number       — card number e.g. OP01-060'],
+      ['', '', '', '', '', 'Qty          — how many copies you have (e.g. 3 SRs = qty 3)'],
+      ['', '', '', '', '', 'Language     — leave blank for English, write Japanese for JP'],
+      ['', '', '', '', '', 'Listing Type — set = add to set variation listing (default)'],
+      ['', '', '', '', '', '               lot = standalone bundle listing (e.g. 3x Nami)'],
+      ['', '', '', '', '', 'Everything else (name, price, condition) is auto-handled'],
     ];
-    const rows = [headers, ...examples, ...notes].map(r => r.map(esc).join(',')).join('\r\n');
+    // Merge examples and notes side by side on the same rows
+    const dataRows = examples.map((ex, i) => {
+      const note = notes[i] || [];
+      return [...ex, '', note[5] || ''];
+    });
+    // Any remaining note rows
+    const extraNotes = notes.slice(examples.length).map(n => ['', '', '', '', '', n[5] || '']);
+    const rows = [
+      [...headers, '', 'Notes'],
+      ...dataRows,
+      ...extraNotes
+    ].map(r => r.map(esc).join(',')).join('\r\n');
     triggerDownload(rows, 'tcg_lister_template.csv');
   }
 
