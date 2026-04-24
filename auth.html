@@ -15,55 +15,62 @@
     .box {
       background: #1a1a1a; border: 1px solid #2a2a2a;
       border-radius: 16px; padding: 32px 28px;
-      width: 100%; max-width: 380px;
+      width: 100%; max-width: 400px;
     }
     h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .sub { font-size: 13px; color: #666; margin-bottom: 24px; }
     label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
-    input {
+    input[type=password], input[type=text] {
       width: 100%; padding: 10px 12px; border: 1px solid #2e2e2e;
       border-radius: 8px; background: #242424; color: #e8e8e8;
       font-size: 15px; font-family: inherit; outline: none; margin-bottom: 14px;
     }
+    input[type=number] {
+      width: 100%; padding: 12px; border: 1px solid #2e2e2e;
+      border-radius: 8px; background: #242424; color: #e8e8e8;
+      font-size: 24px; font-family: monospace; letter-spacing: 8px;
+      text-align: center; outline: none; margin-bottom: 14px;
+      -moz-appearance: textfield;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
-    input[type=number] { letter-spacing: 4px; font-size: 20px; text-align: center; }
-    button {
+    .btn {
       width: 100%; padding: 11px; border-radius: 8px; border: none;
       background: #e8e8e8; color: #0f0f0f; font-size: 14px; font-weight: 600;
       cursor: pointer; font-family: inherit; margin-top: 4px;
     }
-    button:hover { background: #fff; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .err {
-      font-size: 13px; color: #ef4444; text-align: center;
-      margin-top: 10px; min-height: 18px;
+    .btn:hover { background: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sec {
+      width: 100%; padding: 11px; border-radius: 8px;
+      border: 1px solid #2e2e2e; background: none;
+      color: #888; font-size: 14px; font-weight: 500;
+      cursor: pointer; font-family: inherit; margin-top: 8px;
     }
-    .ok {
-      font-size: 13px; color: #22c55e; text-align: center;
-      margin-top: 10px; min-height: 18px;
-    }
-    .divider { border: none; border-top: 1px solid #2a2a2a; margin: 20px 0; }
-    .setup-box {
+    .btn-sec:hover { color: #e8e8e8; border-color: #444; }
+    .err { font-size: 13px; color: #ef4444; text-align: center; margin-top: 10px; min-height: 18px; }
+    .ok  { font-size: 13px; color: #22c55e; text-align: center; margin-top: 10px; min-height: 18px; }
+    hr   { border: none; border-top: 1px solid #2a2a2a; margin: 20px 0; }
+    .info-box {
       background: #0f1a2e; border: 1px solid #1e3a5f;
-      border-radius: 10px; padding: 16px; margin-bottom: 16px;
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
+      font-size: 13px; color: #60a5fa; line-height: 1.6;
     }
-    .setup-box h2 { font-size: 13px; color: #60a5fa; margin-bottom: 8px; }
-    .setup-box p { font-size: 12px; color: #888; line-height: 1.6; }
-    #qr-wrap { text-align: center; margin: 12px 0; }
-    #qr-wrap img { border-radius: 8px; border: 4px solid #fff; }
-    .secret-display {
+    .info-box strong { display: block; margin-bottom: 4px; }
+    #qr-wrap { text-align: center; margin: 14px 0; }
+    #qr-wrap img { border-radius: 8px; border: 6px solid #fff; }
+    .secret-box {
       font-family: monospace; font-size: 13px; background: #111;
-      border: 1px solid #2a2a2a; border-radius: 6px; padding: 8px 12px;
-      text-align: center; letter-spacing: 2px; color: #94a3b8;
-      margin: 8px 0; word-break: break-all;
+      border: 1px solid #2a2a2a; border-radius: 6px; padding: 10px;
+      text-align: center; letter-spacing: 3px; color: #94a3b8;
+      word-break: break-all; margin: 8px 0 16px;
     }
-    .step { font-size: 12px; color: #666; margin-bottom: 6px; }
-    .step strong { color: #e8e8e8; }
     .tabs { display: flex; gap: 6px; margin-bottom: 20px; }
     .tab {
       flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #2e2e2e;
       background: #242424; color: #666; font-size: 13px; font-weight: 500;
-      cursor: pointer; font-family: inherit; text-align: center;
+      cursor: pointer; font-family: inherit;
     }
     .tab.active { background: #e8e8e8; color: #0f0f0f; border-color: #e8e8e8; }
   </style>
@@ -71,235 +78,246 @@
 <body>
 <div class="box">
   <h1>TCG eBay AU Lister</h1>
-  <p class="sub">Sign in to continue</p>
+  <p class="sub" id="page-sub">Sign in to continue</p>
 
   <div class="tabs">
     <button class="tab active" id="tab-login" onclick="showTab('login')">Sign in</button>
     <button class="tab" id="tab-setup" onclick="showTab('setup')">First time setup</button>
   </div>
 
-  <!-- LOGIN TAB -->
+  <!-- ── LOGIN ── -->
   <div id="pane-login">
-    <div class="field">
+    <div>
       <label>Password</label>
       <input type="password" id="login-pw" placeholder="Enter your password" autocomplete="current-password" />
     </div>
-    <div class="field">
+    <div>
       <label>Google Authenticator code</label>
-      <input type="number" id="login-otp" placeholder="000000" maxlength="6" autocomplete="one-time-code" />
+      <input type="number" id="login-otp" placeholder="000000" autocomplete="one-time-code" />
     </div>
-    <button onclick="doLogin()">Sign in</button>
+    <button class="btn" onclick="doLogin()" id="login-btn">Sign in</button>
     <div class="err" id="login-err"></div>
   </div>
 
-  <!-- SETUP TAB -->
+  <!-- ── SETUP ── -->
   <div id="pane-setup" style="display:none;">
-    <div class="setup-box">
-      <h2>One-time setup</h2>
-      <p>Set a password and scan the QR code into Google Authenticator. You only do this once.</p>
+    <div id="setup-step1">
+      <div class="info-box">
+        <strong>One-time setup</strong>
+        Set a password and scan the QR code into Google Authenticator. You only do this once — credentials are stored locally in your browser.
+      </div>
+      <div>
+        <label>Choose a password (min 6 characters)</label>
+        <input type="password" id="setup-pw" placeholder="Choose a strong password" />
+      </div>
+      <div>
+        <label>Confirm password</label>
+        <input type="password" id="setup-pw2" placeholder="Repeat password" />
+      </div>
+      <button class="btn" onclick="doSetupStep1()">Continue →</button>
+      <div class="err" id="setup-err1"></div>
     </div>
 
-    <div class="field">
-      <label>Choose a password</label>
-      <input type="password" id="setup-pw" placeholder="Choose a strong password" />
-    </div>
-    <div class="field">
-      <label>Confirm password</label>
-      <input type="password" id="setup-pw2" placeholder="Repeat password" />
-    </div>
-
-    <button onclick="generateQR()" id="gen-btn">Generate QR code</button>
-
-    <div id="qr-section" style="display:none; margin-top:16px;">
-      <hr class="divider" />
-      <p class="step" style="margin-bottom:10px;"><strong>Scan this QR code with Google Authenticator:</strong></p>
+    <div id="setup-step2" style="display:none;">
+      <p style="font-size:13px; color:#888; margin-bottom:10px;">
+        <strong style="color:#e8e8e8;">Scan this QR code</strong> in Google Authenticator (tap + → Scan QR code):
+      </p>
       <div id="qr-wrap"></div>
-      <p class="step" style="margin-top:10px;">Or enter this key manually:</p>
-      <div class="secret-display" id="secret-display"></div>
-      <hr class="divider" />
-      <p class="step"><strong>Then enter the 6-digit code to confirm setup:</strong></p>
+      <p style="font-size:12px; color:#666; margin-bottom:4px;">Or enter this key manually in Google Authenticator:</p>
+      <div class="secret-box" id="secret-display"></div>
+
+      <hr />
+      <label>Enter the 6-digit code from Google Authenticator to confirm:</label>
       <input type="number" id="setup-otp" placeholder="000000" />
-      <button onclick="confirmSetup()">Complete setup</button>
+      <button class="btn" onclick="doSetupStep2()">Complete setup</button>
+      <button class="btn-sec" onclick="showStep(1)">← Back</button>
+      <div class="err" id="setup-err2"></div>
+      <div class="ok"  id="setup-ok"></div>
     </div>
-    <div class="err" id="setup-err"></div>
-    <div class="ok" id="setup-ok"></div>
   </div>
 </div>
 
-<!-- Load TOTP library from CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 <script>
-// ─── TOTP Implementation ───────────────────────────────────
-// RFC 6238 TOTP using CryptoJS HMAC-SHA1
+/* ── Utilities ───────────────────────────────────────────── */
 
-function base32Decode(str) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  str = str.replace(/=+$/, '').toUpperCase();
-  let bits = 0, value = 0;
-  const output = [];
-  for (const c of str) {
-    const idx = chars.indexOf(c);
-    if (idx === -1) continue;
-    value = (value << 5) | idx;
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function generateSecret(len = 16) {
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const arr   = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => alpha[b % 32]).join('');
+}
+
+/* ── TOTP (RFC 6238) ─────────────────────────────────────── */
+// Pure JS implementation — no external libraries needed
+
+function b32ToBytes(s) {
+  s = s.toUpperCase().replace(/=+$/, '');
+  const map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let buf = 0, bits = 0;
+  const out = [];
+  for (const c of s) {
+    const v = map.indexOf(c);
+    if (v < 0) continue;
+    buf = (buf << 5) | v;
     bits += 5;
-    if (bits >= 8) { output.push((value >>> (bits - 8)) & 255); bits -= 8; }
+    if (bits >= 8) { out.push((buf >> (bits - 8)) & 0xff); bits -= 8; }
   }
-  return output;
+  return new Uint8Array(out);
 }
 
-function generateTOTP(secret, time) {
-  const T = Math.floor((time || Date.now() / 1000) / 30);
-  const bytes = base32Decode(secret);
-  const keyWords = CryptoJS.lib.WordArray.create(bytes);
-  const counterBytes = [];
-  let t = T;
-  for (let i = 7; i >= 0; i--) { counterBytes[i] = t & 0xff; t >>= 8; }
-  const msgWords = CryptoJS.lib.WordArray.create(counterBytes);
-  const hmac = CryptoJS.HmacSHA1(msgWords, keyWords);
-  const arr  = [];
-  for (let i = 0; i < hmac.sigBytes; i++) {
-    arr.push((hmac.words[Math.floor(i / 4)] >>> (24 - (i % 4) * 8)) & 0xff);
-  }
-  const offset = arr[arr.length - 1] & 0x0f;
-  const code = ((arr[offset] & 0x7f) << 24) |
-               ((arr[offset + 1] & 0xff) << 16) |
-               ((arr[offset + 2] & 0xff) << 8)  |
-               (arr[offset + 3] & 0xff);
-  return String(code % 1000000).padStart(6, '0');
+async function hmacSHA1(keyBytes, msgBytes) {
+  const key = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, msgBytes);
+  return new Uint8Array(sig);
 }
 
-function verifyTOTP(secret, token) {
-  // Allow ±1 window (30 second tolerance)
+async function totp(secret, time) {
+  const T       = Math.floor((time ?? Date.now() / 1000) / 30);
+  const counter = new Uint8Array(8);
+  let   t       = BigInt(T);
+  for (let i = 7; i >= 0; i--) { counter[i] = Number(t & 0xffn); t >>= 8n; }
+  const key     = b32ToBytes(secret);
+  const mac     = await hmacSHA1(key, counter);
+  const offset  = mac[mac.length - 1] & 0x0f;
+  const code    = ((mac[offset] & 0x7f) << 24) |
+                  (mac[offset+1] << 16) |
+                  (mac[offset+2] << 8)  |
+                   mac[offset+3];
+  return String(code % 1_000_000).padStart(6, '0');
+}
+
+async function verifyTOTP(secret, token) {
   const now = Math.floor(Date.now() / 1000);
-  for (let delta = -1; delta <= 1; delta++) {
-    if (generateTOTP(secret, now + delta * 30) === String(token).padStart(6, '0')) return true;
+  const t   = String(token).padStart(6, '0');
+  for (const delta of [-1, 0, 1]) {
+    if (await totp(secret, now + delta * 30) === t) return true;
   }
   return false;
 }
 
-function generateSecret() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let s = '';
-  const arr = new Uint8Array(20);
-  crypto.getRandomValues(arr);
-  arr.forEach(b => s += chars[b % 32]);
-  return s;
-}
+/* ── UI helpers ──────────────────────────────────────────── */
 
-async function hashPassword(pw) {
-  const enc  = new TextEncoder().encode(pw);
-  const buf  = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// ─── UI ──────────────────────────────────────────────────
+let pendingSecret = '';
+let pendingPwHash = '';
 
 function showTab(tab) {
-  document.getElementById('pane-login').style.display  = tab === 'login'  ? 'block' : 'none';
-  document.getElementById('pane-setup').style.display  = tab === 'setup'  ? 'block' : 'none';
+  document.getElementById('pane-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('pane-setup').style.display = tab === 'setup' ? 'block' : 'none';
   document.getElementById('tab-login').classList.toggle('active', tab === 'login');
   document.getElementById('tab-setup').classList.toggle('active', tab === 'setup');
 }
 
-let pendingSecret = '';
-
-function generateQR() {
-  const pw  = document.getElementById('setup-pw').value;
-  const pw2 = document.getElementById('setup-pw2').value;
-  const err = document.getElementById('setup-err');
-
-  if (!pw || pw.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
-  if (pw !== pw2)           { err.textContent = 'Passwords do not match.'; return; }
-  err.textContent = '';
-
-  pendingSecret = generateSecret();
-  const label   = encodeURIComponent('TCG eBay Lister');
-  const issuer  = encodeURIComponent('TCG Lister');
-  const otpUrl  = `otpauth://totp/${label}?secret=${pendingSecret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
-  const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpUrl)}`;
-
-  document.getElementById('qr-wrap').innerHTML     = `<img src="${qrUrl}" width="200" height="200" alt="QR Code" />`;
-  document.getElementById('secret-display').textContent = pendingSecret;
-  document.getElementById('qr-section').style.display  = 'block';
-  document.getElementById('gen-btn').textContent        = 'Regenerate QR code';
+function showStep(n) {
+  document.getElementById('setup-step1').style.display = n === 1 ? 'block' : 'none';
+  document.getElementById('setup-step2').style.display = n === 2 ? 'block' : 'none';
 }
 
-async function confirmSetup() {
-  const pw    = document.getElementById('setup-pw').value;
-  const otp   = document.getElementById('setup-otp').value.trim();
-  const err   = document.getElementById('setup-err');
-  const ok    = document.getElementById('setup-ok');
+/* ── Setup flow ──────────────────────────────────────────── */
 
-  if (!pendingSecret)          { err.textContent = 'Generate a QR code first.'; return; }
-  if (!verifyTOTP(pendingSecret, otp)) { err.textContent = 'Invalid code — check Google Authenticator and try again.'; return; }
+async function doSetupStep1() {
+  const pw   = document.getElementById('setup-pw').value;
+  const pw2  = document.getElementById('setup-pw2').value;
+  const err  = document.getElementById('setup-err1');
 
-  const hash = await hashPassword(pw);
-  localStorage.setItem('tcg_auth_hash',   hash);
-  localStorage.setItem('tcg_auth_secret', pendingSecret);
+  if (pw.length < 6)  { err.textContent = 'Password must be at least 6 characters.'; return; }
+  if (pw !== pw2)     { err.textContent = 'Passwords do not match.'; return; }
+  err.textContent = '';
+
+  pendingPwHash  = await sha256(pw);
+  pendingSecret  = generateSecret();
+
+  const label  = 'TCG%20eBay%20Lister';
+  const uri    = `otpauth://totp/${label}?secret=${pendingSecret}&issuer=TCGLister&algorithm=SHA1&digits=6&period=30`;
+  const qrSrc  = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(uri)}`;
+
+  document.getElementById('qr-wrap').innerHTML       = `<img src="${qrSrc}" width="220" height="220" alt="QR" />`;
+  document.getElementById('secret-display').textContent = pendingSecret;
+
+  showStep(2);
+}
+
+async function doSetupStep2() {
+  const otp = document.getElementById('setup-otp').value.trim();
+  const err = document.getElementById('setup-err2');
+  const ok  = document.getElementById('setup-ok');
+
+  if (!otp || otp.length < 6) { err.textContent = 'Enter the 6-digit code from Google Authenticator.'; return; }
+
+  if (!(await verifyTOTP(pendingSecret, otp))) {
+    err.textContent = 'Code is incorrect or expired — try again with the current code.';
+    return;
+  }
+
+  localStorage.setItem('tcg_pw_hash', pendingPwHash);
+  localStorage.setItem('tcg_totp_secret', pendingSecret);
   localStorage.removeItem('tcg_auth_session');
 
   err.textContent = '';
-  ok.textContent  = 'Setup complete! Switch to Sign in tab.';
-  setTimeout(() => showTab('login'), 1500);
+  ok.textContent  = '✓ Setup complete! Redirecting to sign in…';
+  setTimeout(() => { showTab('login'); showStep(1); ok.textContent = ''; }, 1800);
 }
 
-async function doLogin() {
-  const pw    = document.getElementById('login-pw').value;
-  const otp   = document.getElementById('login-otp').value.trim();
-  const err   = document.getElementById('login-err');
-  const btn   = document.querySelector('#pane-login button');
+/* ── Login ───────────────────────────────────────────────── */
 
-  const storedHash   = localStorage.getItem('tcg_auth_hash');
-  const storedSecret = localStorage.getItem('tcg_auth_secret');
+async function doLogin() {
+  const pw  = document.getElementById('login-pw').value;
+  const otp = document.getElementById('login-otp').value.trim();
+  const err = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+
+  const storedHash   = localStorage.getItem('tcg_pw_hash');
+  const storedSecret = localStorage.getItem('tcg_totp_secret');
 
   if (!storedHash || !storedSecret) {
     err.textContent = 'No account set up — use the First time setup tab.';
     return;
   }
 
-  btn.disabled = true;
+  if (!otp || otp.length < 6) { err.textContent = 'Enter the 6-digit code from Google Authenticator.'; return; }
+
+  btn.disabled    = true;
+  btn.textContent = 'Checking…';
   err.textContent = '';
 
-  const hash = await hashPassword(pw);
-
+  const hash = await sha256(pw);
   if (hash !== storedHash) {
     err.textContent = 'Incorrect password.';
-    btn.disabled = false;
+    btn.disabled = false; btn.textContent = 'Sign in';
     return;
   }
 
-  if (!verifyTOTP(storedSecret, otp)) {
-    err.textContent = 'Invalid authenticator code.';
-    btn.disabled = false;
+  if (!(await verifyTOTP(storedSecret, otp))) {
+    err.textContent = 'Incorrect authenticator code — wait for the next code and try again.';
+    btn.disabled = false; btn.textContent = 'Sign in';
     return;
   }
 
-  // Create 24h session token
-  const session = { token: crypto.randomUUID(), expires: Date.now() + 24 * 60 * 60 * 1000 };
+  const session = { expires: Date.now() + 24 * 60 * 60 * 1000 };
   localStorage.setItem('tcg_auth_session', JSON.stringify(session));
   window.location.href = 'index.html';
 }
 
-// Auto-redirect if already logged in
+/* ── Init ────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  const raw = localStorage.getItem('tcg_auth_session');
-  if (raw) {
-    try {
-      const s = JSON.parse(raw);
-      if (s.expires > Date.now()) { window.location.href = 'index.html'; return; }
-    } catch(e) {}
-  }
+  // Already logged in?
+  try {
+    const s = JSON.parse(localStorage.getItem('tcg_auth_session') || '{}');
+    if (s.expires > Date.now()) { window.location.href = 'index.html'; return; }
+  } catch(e) {}
 
-  // If no account set up yet, show setup tab
-  if (!localStorage.getItem('tcg_auth_hash')) showTab('setup');
+  // No account yet → show setup
+  if (!localStorage.getItem('tcg_pw_hash')) showTab('setup');
 
-  // Enter key submits login
-  document.getElementById('login-otp').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-  document.getElementById('login-pw').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('login-otp').focus();
-  });
+  document.getElementById('login-pw').addEventListener('keydown',  e => { if (e.key === 'Enter') document.getElementById('login-otp').focus(); });
+  document.getElementById('login-otp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('setup-otp').addEventListener('keydown', e => { if (e.key === 'Enter') doSetupStep2(); });
 });
 </script>
 </body>
