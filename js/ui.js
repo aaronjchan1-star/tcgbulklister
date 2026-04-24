@@ -61,28 +61,16 @@ const UI = (() => {
   }
 
   async function fetchOPCardName(number) {
-    // Try TCGdex API first
+    // Call Vercel serverless function which proxies Limitless TCG server-side
     try {
-      const res  = await fetch(`https://api.tcgdex.net/v2/en/cards/${number}`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`/api/cardname?number=${encodeURIComponent(number)}`, {
+        signal: AbortSignal.timeout(6000)
+      });
       if (res.ok) {
         const data = await res.json();
         if (data?.name) return data.name;
       }
-    } catch(e) { /* fallback below */ }
-
-    // Try Limitless TCG API
-    try {
-      const parts  = number.split('-');
-      const set    = parts[0];
-      const num    = parts[1];
-      const res    = await fetch(`https://onepiece.limitlesstcg.com/api/search?cards=true&set=${set}&number=${num}`, { signal: AbortSignal.timeout(4000) });
-      if (res.ok) {
-        const data = await res.json();
-        const card = Array.isArray(data) ? data[0] : data?.cards?.[0];
-        if (card?.name) return card.name;
-      }
-    } catch(e) { /* give up */ }
-
+    } catch(e) { /* not available locally or timed out */ }
     return null;
   }
 
