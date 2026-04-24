@@ -430,3 +430,25 @@ input:focus, select:focus {
   width: 0%;
   transition: width 0.3s ease;
 }
+
+/* ─── Inline price editing ─── */
+.price-inline {
+  width: 70px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-md);
+  border-radius: 5px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.price-inline::-webkit-inner-spin-button,
+.price-inline::-webkit-outer-spin-button { -webkit-appearance: none; }
+.price-inline:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.price-inline:hover { border-color: var(--border-md); }

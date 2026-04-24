@@ -188,7 +188,7 @@ const Listings = (() => {
     return item.game === 'pokemon' ? (item.printedNumber || item.number) : item.number;
   }
 
-  function priceCell(item) {
+  function priceCell(item, index) {
     if (!item.price || item.price === 0) {
       const url = API.getEbayUrl(item);
       return `<a href="${url}" target="_blank" class="price-missing price-lookup" title="Check eBay sold prices">— eBay ↗</a>`;
@@ -197,7 +197,16 @@ const Listings = (() => {
     const confDot   = item.priceSource === 'claude'
       ? `<span title="${item.priceConf || ''} confidence${item.priceNotes ? ': ' + item.priceNotes : ''}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${confColor};margin-left:4px;vertical-align:middle;cursor:help;"></span>`
       : '';
-    return `<span>$${item.price.toFixed(2)}${confDot}</span>`;
+    return `<input
+      type="number"
+      class="price-inline"
+      value="${item.price.toFixed(2)}"
+      step="0.50"
+      min="1"
+      onchange="Listings.updatePrice(${index}, parseFloat(this.value) || 0)"
+      onclick="this.select()"
+      title="Click to edit price"
+    />${confDot}`;
   }
 
   function render() {
@@ -222,7 +231,7 @@ const Listings = (() => {
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond}</span>
           <span class="muted">${l.qty}</span>
-          ${priceCell(l)}
+          ${priceCell(l, i)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
           <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
         </div>

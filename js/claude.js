@@ -65,7 +65,12 @@ const ClaudeAI = (() => {
     }
 
     if (progress) progress.style.width = '100%';
-    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed.${lowConf > 0 ? ` <span style="color:var(--amber);">${lowConf} low-confidence — verify on eBay.</span>` : ''}`;
+    const ebayCount  = Listings.getItems().filter(c => c.priceSource === 'ebay-au').length;
+    const claudeCount = Listings.getItems().filter(c => c.priceSource === 'claude').length;
+    const srcNote = ebayCount > 0
+      ? ` <span style="color:var(--green);">${ebayCount} from eBay AU sold listings${claudeCount > 0 ? `, ${claudeCount} from Claude AI estimate` : ''}</span>`
+      : '';
+    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed.${srcNote}${lowConf > 0 ? ` <span style="color:var(--amber);">${lowConf} low-confidence — verify on eBay.</span>` : ''}`;
     btn.disabled = false;
     Listings.render();
 
