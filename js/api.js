@@ -1,15 +1,16 @@
 /**
  * api.js
- * Price lookup — opens eBay AU sold listings search in a new tab.
- * The eBay Finding API is blocked by CORS proxies due to eBay's datacenter IP restrictions,
- * so we use direct eBay search links instead.
+ * Calls the Vercel serverless /api/price endpoint which proxies eBay server-side.
+ * Falls back to opening eBay search tab if the function is unavailable.
  */
 
 const API = (() => {
   const STORAGE_KEY = 'ebay_app_id';
+  const EBAY_SOLD   = 'https://www.ebay.com.au/sch/i.html?LH_Sold=1&LH_Complete=1&_sacat=0&_nkw=';
 
-  // Base URL for eBay AU completed/sold listings search
-  const EBAY_SOLD_BASE = 'https://www.ebay.com.au/sch/i.html?LH_Sold=1&LH_Complete=1&_sacat=0&_nkw=';
+  // Vercel function endpoint — works when deployed to Vercel
+  // Falls back gracefully if running locally (just opens eBay tab instead)
+  const API_ENDPOINT = '/api/price';
 
   let appId = localStorage.getItem(STORAGE_KEY) || '';
 
@@ -27,87 +28,180 @@ const API = (() => {
     statusEl.className   = 'api-status ok';
   }
 
-  /* ─── Open eBay sold search for a single card ─── */
-  function lookup() {
+  function buildKeywords(card) {
+    if (card.game === 'onePiece') {
+      const variant = card.variant?.label && card.variant.label !== 'Standard'
+        ? ` ${card.variant.label}` : '';
+      return `${card.number}${variant} One Piece${card.lang === 'Japanese' ? ' Japanese' : ''}`;
+    }
+    return `${card.name} ${card.setName} Pokemon`.trim();
+  }
+
+  function buildSearchKeywords(game) {
+    if (game === 'onePiece') {
+      const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
+      const lang    = document.getElementById('f-op-lang').value;
+      const name    = document.getElementById('f-op-name').value.trim();
+      const variant = UI.getSelectedOPVariant();
+      const variantLabel = variant?.label && variant.label !== 'Standard' ? ` ${variant.label}` : '';
+      return `${number}${variantLabel}${name ? ' ' + name : ''} One Piece${lang === 'Japanese' ? ' Japanese' : ''}`;
+    }
+    const name    = document.getElementById('f-pk-name').value.trim();
+    const selected = UI.getSelectedPokemonCard();
+    const setName  = selected?.set?.name || '';
+    return `${name} ${setName} Pokemon`.trim();
+  }
+
+  async function fetchFromVercel(keywords, categoryId) {
+    if (!appId) throw new Error('no_key');
+
+    const url = `${API_ENDPOINT}?keywords=${encodeURIComponent(keywords)}&categoryId=${categoryId}&appId=${encodeURIComponent(appId)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+
+    if (!res.ok) throw new Error(`server_${res.status}`);
+    return await res.json();
+  }
+
+  function showPriceResult(result, statusEl) {
+    if (!result.price) {
+      statusEl.innerHTML = `No recent AU sold listings found. <a href="${result.ebayUrl}" target="_blank" style="color:var(--amber);">Check eBay ↗</a>`;
+      statusEl.className = 'lookup-status err';
+      return false;
+    }
+
+    const range = result.lowest !== result.highest
+      ? ` (range $${result.lowest.toFixed(2)}–$${result.highest.toFixed(2)})`
+      : '';
+
+    statusEl.innerHTML = `
+      Median <strong style="color:var(--text);">$${result.price.toFixed(2)} AUD</strong>
+      from ${result.count} sold listing${result.count !== 1 ? 's' : ''}${result.soldDate ? ', last sold ' + result.soldDate : ''}${range}.
+      <a href="${result.ebayUrl}" target="_blank" style="color:var(--accent); margin-left:4px;">Verify on eBay ↗</a>
+    `;
+    statusEl.className = 'lookup-status ok';
+    return true;
+  }
+
+  /* ─── Single lookup from form ─── */
+  async function lookup() {
     const game = Listings.getGame();
-    let query, statusEl;
+    let keywords, statusEl, labelEl, btn, categoryId;
 
     if (game === 'onePiece') {
       const number = document.getElementById('f-op-number').value.trim().toUpperCase();
-      const lang   = document.getElementById('f-op-lang').value;
-      const name   = document.getElementById('f-op-name').value.trim();
-      statusEl = document.getElementById('lookup-status');
-
-      if (!number) {
-        statusEl.textContent = 'Enter a card number first.';
-        statusEl.className   = 'lookup-status err';
-        return;
-      }
-
-      query = `${number} One Piece${name ? ' ' + name : ''}${lang === 'Japanese' ? ' Japanese' : ''}`;
-
+      if (!number) { setStatus('lookup-status', 'Enter a card number first.', 'err'); return; }
+      keywords   = buildSearchKeywords('onePiece');
+      categoryId = '183454';
+      statusEl   = document.getElementById('lookup-status');
+      labelEl    = document.getElementById('lookup-label');
+      btn        = document.getElementById('btn-lookup');
     } else {
-      const selected = UI.getSelectedPokemonCard();
-      const name     = document.getElementById('f-pk-name').value.trim();
-      const number   = document.getElementById('f-pk-number').value.trim();
-      statusEl = document.getElementById('pk-lookup-status');
-
-      if (!name && !number) {
-        statusEl.textContent = 'Search for a card first.';
-        statusEl.className   = 'lookup-status err';
-        return;
-      }
-
-      const setName = selected?.set?.name || '';
-      query = `${name} ${setName} Pokemon card`.trim();
+      const name = document.getElementById('f-pk-name').value.trim();
+      if (!name) { setStatus('pk-lookup-status', 'Search for a card first.', 'err'); return; }
+      keywords   = buildSearchKeywords('pokemon');
+      categoryId = '2536';
+      statusEl   = document.getElementById('pk-lookup-status');
+      labelEl    = null;
+      btn        = null;
     }
 
-    const url = EBAY_SOLD_BASE + encodeURIComponent(query);
-    window.open(url, '_blank');
-
-    statusEl.textContent = 'eBay sold listings opened in a new tab — enter the price manually.';
-    statusEl.className   = 'lookup-status ok';
-  }
-
-  /* ─── Bulk: open eBay search for all unpriced cards ─── */
-  function bulkFetch() {
-    const items    = Listings.getItems();
-    const unpriced = items.filter(c => !c.price || c.price === 0);
-
-    if (unpriced.length === 0) {
-      alert('All cards already have prices.');
+    if (!appId) {
+      // No key — just open eBay tab as fallback
+      window.open(EBAY_SOLD + encodeURIComponent(keywords), '_blank');
+      const s = game === 'onePiece' ? document.getElementById('lookup-status') : document.getElementById('pk-lookup-status');
+      s.innerHTML = `Opened eBay sold listings in new tab. <small style="color:var(--text-muted);">(Save your eBay App ID above for auto-pricing)</small>`;
+      s.className = 'lookup-status ok';
       return;
     }
 
-    if (unpriced.length > 5) {
-      if (!confirm(`This will open ${unpriced.length} eBay search tabs. Your browser may block some. Continue?`)) return;
+    if (btn)     btn.disabled        = true;
+    if (labelEl) labelEl.textContent = 'Fetching...';
+    statusEl.textContent = 'Fetching eBay AU sold prices...';
+    statusEl.className   = 'lookup-status';
+
+    try {
+      const result = await fetchFromVercel(keywords, categoryId);
+      const hasPrice = showPriceResult(result, statusEl);
+      if (hasPrice) document.getElementById('f-price').value = result.price.toFixed(2);
+
+    } catch(err) {
+      if (err.message === 'no_key' || err.message?.includes('server_')) {
+        // Vercel function not available — fall back to opening eBay tab
+        window.open(EBAY_SOLD + encodeURIComponent(keywords), '_blank');
+        statusEl.innerHTML = `Opened eBay sold listings in new tab — enter the price manually.`;
+        statusEl.className = 'lookup-status ok';
+      } else {
+        statusEl.innerHTML = `Lookup failed: ${err.message}. <a href="${EBAY_SOLD + encodeURIComponent(keywords)}" target="_blank" style="color:var(--amber);">Check eBay ↗</a>`;
+        statusEl.className = 'lookup-status err';
+      }
+    } finally {
+      if (btn)     btn.disabled        = false;
+      if (labelEl) labelEl.textContent = 'Check eBay';
     }
-
-    unpriced.forEach((card, i) => {
-      setTimeout(() => {
-        let query;
-        if (card.game === 'onePiece') {
-          query = `${card.number} One Piece${card.name ? ' ' + card.name : ''}${card.lang === 'Japanese' ? ' Japanese' : ''}`;
-        } else {
-          query = `${card.name} ${card.setName} Pokemon card`.trim();
-        }
-        window.open(EBAY_SOLD_BASE + encodeURIComponent(query), '_blank');
-      }, i * 300); // stagger to avoid popup blocker
-    });
-
-    const statusEl = document.getElementById('bulk-status');
-    statusEl.style.display = 'block';
-    statusEl.textContent   = `Opened ${unpriced.length} eBay search tab${unpriced.length !== 1 ? 's' : ''} — enter prices manually then close tabs.`;
-    setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
   }
 
-  // Restore key on load
-  window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      document.getElementById('api-key-input').value = saved;
+  /* ─── Bulk price fetch ─── */
+  async function bulkFetch() {
+    const items    = Listings.getItems();
+    const unpriced = items.map((c, i) => ({ card: c, index: i }))
+                          .filter(({ card }) => !card.price || card.price === 0);
+
+    if (unpriced.length === 0) { alert('All cards already have prices.'); return; }
+
+    const btn      = document.getElementById('bulk-fetch-btn');
+    const statusEl = document.getElementById('bulk-status');
+    btn.disabled   = true;
+    statusEl.style.display = 'block';
+
+    if (!appId) {
+      // No key — open tabs
+      unpriced.forEach(({ card }, i) => {
+        setTimeout(() => {
+          window.open(EBAY_SOLD + encodeURIComponent(buildKeywords(card)), '_blank');
+        }, i * 400);
+      });
+      statusEl.textContent = `Opened ${unpriced.length} eBay search tab${unpriced.length !== 1 ? 's' : ''} — enter prices manually.`;
+      btn.disabled = false;
+      setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+      return;
     }
-  });
+
+    let success = 0, failed = 0;
+
+    for (let i = 0; i < unpriced.length; i++) {
+      const { card, index } = unpriced[i];
+      statusEl.textContent  = `Fetching ${i + 1} of ${unpriced.length}: ${card.number || card.name}...`;
+
+      try {
+        const keywords   = buildKeywords(card);
+        const categoryId = card.game === 'pokemon' ? '2536' : '183454';
+        const result     = await fetchFromVercel(keywords, categoryId);
+
+        if (result.price) {
+          Listings.updatePrice(index, result.price);
+          success++;
+        } else {
+          failed++;
+        }
+      } catch(e) {
+        failed++;
+      }
+
+      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 600));
+    }
+
+    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> not found on eBay AU.`;
+    btn.disabled = false;
+    Listings.render();
+    setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+  }
+
+  function setStatus(elId, msg, type) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.className   = `lookup-status ${type}`;
+  }
 
   return { save, lookup, bulkFetch };
 })();

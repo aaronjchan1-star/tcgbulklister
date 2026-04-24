@@ -60,6 +60,32 @@ const UI = (() => {
     });
   }
 
+  async function fetchOPCardName(number) {
+    // Try TCGdex API first
+    try {
+      const res  = await fetch(`https://api.tcgdex.net/v2/en/cards/${number}`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.name) return data.name;
+      }
+    } catch(e) { /* fallback below */ }
+
+    // Try Limitless TCG API
+    try {
+      const parts  = number.split('-');
+      const set    = parts[0];
+      const num    = parts[1];
+      const res    = await fetch(`https://onepiece.limitlesstcg.com/api/search?cards=true&set=${set}&number=${num}`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json();
+        const card = Array.isArray(data) ? data[0] : data?.cards?.[0];
+        if (card?.name) return card.name;
+      }
+    } catch(e) { /* give up */ }
+
+    return null;
+  }
+
   async function searchOPVariants() {
     const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
     const lang    = document.getElementById('f-op-lang').value;
@@ -76,14 +102,23 @@ const UI = (() => {
     statusEl.textContent = 'Checking variants...';
     statusEl.className   = 'lookup-status';
 
-    // Probe all known suffixes in parallel
-    const results = await Promise.all(
-      OP_VARIANTS.map(async v => {
-        const url   = opImageUrl(number, v.suffix, lang);
-        const valid = await checkImage(url);
-        return valid ? { ...v, url } : null;
-      })
-    );
+    // Probe images and fetch card name in parallel
+    const [results, cardName] = await Promise.all([
+      Promise.all(
+        OP_VARIANTS.map(async v => {
+          const url   = opImageUrl(number, v.suffix, lang);
+          const valid = await checkImage(url);
+          return valid ? { ...v, url } : null;
+        })
+      ),
+      fetchOPCardName(number)
+    ]);
+
+    // Auto-populate card name if field is empty
+    if (cardName) {
+      const nameField = document.getElementById('f-op-name');
+      if (!nameField.value.trim()) nameField.value = cardName;
+    }
 
     const found = results.filter(Boolean);
 
@@ -95,7 +130,7 @@ const UI = (() => {
 
     if (found.length === 1) {
       selectOPVariant(found[0]);
-      statusEl.textContent = `Found: ${number} ${found[0].label} — click Add to list.`;
+      statusEl.textContent = `Found: ${number} ${found[0].label}${cardName ? ' — ' + cardName : ''} — click Add to list.`;
       statusEl.className   = 'lookup-status ok';
     } else {
       showOPPicker(number, found);
