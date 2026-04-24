@@ -111,12 +111,40 @@ const CSV = (() => {
     ].map(esc).join(',');
   }
 
+  function parseCardNumber(num) {
+    // Parse "OP01-060" or "025/198" into sortable parts
+    if (!num) return { set: 'ZZZ', n: 9999 };
+    // One Piece format: OP01-060, ST07-003 etc
+    const opMatch = num.match(/^([A-Z]+)(\d+)-(\d+)/);
+    if (opMatch) return { set: opMatch[1] + opMatch[2].padStart(4,'0'), n: parseInt(opMatch[3]) };
+    // Pokémon format: 215 or 025/198
+    const pkMatch = num.match(/^(\d+)/);
+    if (pkMatch) return { set: 'PKM', n: parseInt(pkMatch[1]) };
+    return { set: num, n: 0 };
+  }
+
+  function sortItems(items) {
+    return [...items].sort((a, b) => {
+      // Sort by game first (One Piece before Pokémon)
+      if (a.game !== b.game) return a.game === 'onePiece' ? -1 : 1;
+
+      // Then by set
+      const pa = parseCardNumber(a.number);
+      const pb = parseCardNumber(b.number);
+      if (pa.set !== pb.set) return pa.set.localeCompare(pb.set);
+
+      // Then by number within set
+      return pa.n - pb.n;
+    });
+  }
+
   function download() {
-    const items = Listings.getAll();
-    if (items.length === 0) {
+    const rawItems = Listings.getAll();
+    if (rawItems.length === 0) {
       alert('Add at least one card before downloading.');
       return;
     }
+    const items = sortItems(rawItems);
     const rows = [HEADERS.join(','), ...items.map(buildRow)];
     const csv  = rows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
