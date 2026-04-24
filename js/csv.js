@@ -85,9 +85,10 @@ const CSV = (() => {
 
   function buildParentDescription(cards, setId, setName, game) {
     const cardList = cards.map(c => {
-      const variant = c.variant?.label && c.variant.label !== 'Standard' ? ` (${c.variant.label})` : '';
-      const name    = c.name && c.name !== c.number ? ` ${c.name}` : '';
-      return `• ${c.number}${name}${variant} — $${c.price.toFixed(2)} AUD`;
+      const variant  = c.variant?.label && c.variant.label !== 'Standard' ? ` (${c.variant.label})` : '';
+      const hasName  = c.name && c.name !== c.number && c.name.trim() !== '';
+      const namePart = hasName ? ` ${c.name}` : '';
+      return `• ${c.number}${namePart}${variant} — $${c.price.toFixed(2)} AUD`;
     }).join('\n');
 
     if (game === 'onePiece') {
@@ -137,11 +138,13 @@ const CSV = (() => {
   }
 
   function buildVariationSpecifics(card) {
-    // The variation name shown in the dropdown on eBay
-    const variant = card.variant?.label && card.variant.label !== 'Standard'
-      ? ` ${card.variant.label}` : '';
-    const name    = card.name && card.name !== card.number ? ` ${card.name}` : '';
-    return `${card.number}${name}${variant}`;
+    // Format: "OP05-110 Sanji SR" or "OP05-110 SEC Gold" etc
+    const variant  = card.variant?.label && card.variant.label !== 'Standard'
+      ? ` ${card.variant.label}` : ' SR';
+    // Use card name if it was fetched and is different from the number
+    const hasName  = card.name && card.name !== card.number && card.name.trim() !== '';
+    const namePart = hasName ? ` ${card.name}` : '';
+    return `${card.number}${namePart}${variant}`.substring(0, 65); // eBay variation name limit
   }
 
   function groupBySet(items) {
