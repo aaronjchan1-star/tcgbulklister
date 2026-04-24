@@ -1,15 +1,13 @@
 /**
  * api.js
  * eBay Finding API — last sold price lookup.
- * Uses corsproxy.io as the CORS proxy (more reliable than allorigins).
- * Falls back to allorigins if first proxy fails.
+ * Uses multiple CORS proxies with fallback.
  */
 
 const API = (() => {
   const STORAGE_KEY      = 'ebay_app_id';
   const FINDING_ENDPOINT = 'https://svcs.ebay.com/services/search/FindingService/v1';
 
-  // Multiple proxies to try in order
   const PROXIES = [
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
@@ -33,6 +31,8 @@ const API = (() => {
   }
 
   function buildFindingUrl(keywords, categoryId) {
+    // No listing type filter — includes both Fixed Price and Auctions for more results
+    // No currency filter — AU results will still show AUD prices
     return [
       FINDING_ENDPOINT,
       '?OPERATION-NAME=findCompletedItems',
@@ -45,49 +45,59 @@ const API = (() => {
       '&itemFilter(0).value=true',
       '&itemFilter(1).name=Currency',
       '&itemFilter(1).value=AUD',
-      '&itemFilter(2).name=ListingType',
-      '&itemFilter(2).value=FixedPrice',
       '&sortOrder=EndTimeSoonest',
-      '&paginationInput.entriesPerPage=5'
+      '&paginationInput.entriesPerPage=10'
     ].join('');
   }
 
   async function tryFetch(findingUrl) {
+    let lastError = null;
     for (let i = 0; i < PROXIES.length; i++) {
       try {
         const proxyUrl = PROXIES[i](findingUrl);
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) continue;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) {
+          lastError = new Error(`Proxy ${i+1} returned ${res.status}`);
+          continue;
+        }
 
         const text = await res.text();
         let jsonText = text;
 
-        // allorigins wraps in {contents: "..."}
+        // allorigins wraps response in {contents: "..."}
         try {
           const outer = JSON.parse(text);
           if (outer.contents) jsonText = outer.contents;
-        } catch(e) { /* not wrapped, use raw */ }
+        } catch(e) { /* raw JSON, use as-is */ }
 
         const data = JSON.parse(jsonText);
         const root = data?.findCompletedItemsResponse?.[0];
         const ack  = root?.ack?.[0];
 
         if (ack === 'Success') return root;
-        if (ack === 'Failure') {
-          const msg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay API error';
-          throw new Error(msg);
-        }
+
+        // eBay returned a real error — no point retrying other proxies
+        const msg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay API error';
+        throw new Error(msg);
+
       } catch(err) {
-        if (err.message && !err.message.includes('fetch')) throw err; // real eBay error, don't retry
-        if (i === PROXIES.length - 1) throw new Error('All proxies failed — try again shortly.');
+        if (err.message && (
+          err.message.includes('eBay') ||
+          err.message.includes('Invalid') ||
+          err.message.includes('Unsupported')
+        )) {
+          throw err; // Real eBay error, don't retry
+        }
+        lastError = err;
+        // Try next proxy
       }
     }
+    throw lastError || new Error('All proxies failed — try again shortly.');
   }
 
   async function fetchPrice(keywords, categoryId) {
     if (!appId) throw new Error('No API key saved.');
-    const findingUrl = buildFindingUrl(keywords, categoryId);
-    const root = await tryFetch(findingUrl);
+    const root = await tryFetch(buildFindingUrl(keywords, categoryId));
 
     const items = root?.searchResult?.[0]?.item;
     if (!items || items.length === 0) return null;
@@ -97,14 +107,19 @@ const API = (() => {
       .filter(p => !isNaN(p) && p > 0)
       .sort((a, b) => a - b);
 
-    return prices.length > 0 ? prices[Math.floor(prices.length / 2)] : null;
+    if (prices.length === 0) return null;
+
+    // Use median to avoid outliers
+    return prices[Math.floor(prices.length / 2)];
   }
 
   function buildKeywords(card) {
     if (card.game === 'onePiece') {
-      return `${card.number} One Piece TCG SR ${card.lang}`;
+      // Keep it simple — card number is unique enough
+      return `${card.number} One Piece card`;
     }
-    return `${card.name} ${card.setName} ${card.number} Pokemon TCG`.trim();
+    // For Pokémon, name + set name is more reliable than number alone
+    return `${card.name} ${card.setName} Pokemon card`.trim();
   }
 
   /* ─── Single lookup from form ─── */
@@ -114,26 +129,25 @@ const API = (() => {
 
     if (game === 'onePiece') {
       const cardNumber = document.getElementById('f-op-number').value.trim().toUpperCase();
-      const lang       = document.getElementById('f-op-lang').value;
       if (!cardNumber) {
         setStatus('lookup-status', 'Enter a card number first.', 'err');
         return;
       }
-      keywords   = `${cardNumber} One Piece TCG SR ${lang}`;
+      keywords   = `${cardNumber} One Piece card`;
       categoryId = '183454';
       statusEl   = document.getElementById('lookup-status');
       labelEl    = document.getElementById('lookup-label');
       btn        = document.getElementById('btn-lookup');
     } else {
       const selected = UI.getSelectedPokemonCard();
-      const setName  = selected?.set?.name || '';
-      const number   = document.getElementById('f-pk-number').value.trim();
       const name     = document.getElementById('f-pk-name').value.trim();
-      if (!number) {
+      const number   = document.getElementById('f-pk-number').value.trim();
+      if (!number && !name) {
         setStatus('pk-lookup-status', 'Search for a card first.', 'err');
         return;
       }
-      keywords   = `${name} ${setName} ${number} Pokemon TCG`.trim();
+      const setName  = selected?.set?.name || '';
+      keywords   = `${name} ${setName} Pokemon card`.trim();
       categoryId = '2536';
       statusEl   = document.getElementById('pk-lookup-status');
       labelEl    = null;
@@ -148,17 +162,17 @@ const API = (() => {
 
     if (btn)     btn.disabled        = true;
     if (labelEl) labelEl.textContent = 'Fetching...';
-    statusEl.textContent = 'Fetching sold listings...';
+    statusEl.textContent = 'Searching eBay AU sold listings...';
     statusEl.className   = 'lookup-status';
 
     try {
       const median = await fetchPrice(keywords, categoryId);
       if (median === null) {
-        statusEl.textContent = 'No recent AU sold listings found.';
+        statusEl.textContent = 'No recent AU sold listings found — try a broader search or set price manually.';
         statusEl.className   = 'lookup-status err';
       } else {
         document.getElementById('f-price').value = median.toFixed(2);
-        statusEl.textContent = `Median $${median.toFixed(2)} AUD from recent sold listings`;
+        statusEl.textContent = `Median $${median.toFixed(2)} AUD from recent eBay AU sales`;
         statusEl.className   = 'lookup-status ok';
       }
     } catch (err) {
@@ -208,10 +222,10 @@ const API = (() => {
       if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 800));
     }
 
-    statusEl.textContent = `Done — ${success} priced, ${failed} not found.`;
+    statusEl.textContent = `Done — ${success} priced, ${failed} not found on eBay AU.`;
     btn.disabled = false;
     Listings.render();
-    setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
   }
 
   function setStatus(elId, msg, type) {
