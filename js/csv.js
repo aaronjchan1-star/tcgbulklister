@@ -44,6 +44,7 @@ const CSV = (() => {
     'C:Game', 'CD:40001',
     'Relationship', 'RelationshipDetails'
   ];
+  // Note: PicURL for variation rows uses format: Card=VariationName=ImageURL
 
   function esc(v) {
     v = String(v == null ? '' : v);
@@ -167,6 +168,17 @@ const CSV = (() => {
     return map[cond] || '400010';
   }
 
+  function getCardImageUrl(card) {
+    if (card.imageUrl) return card.imageUrl;
+    if (card.game === 'onePiece') {
+      const set    = card.number.split('-')[0].toUpperCase();
+      const suffix = card.variant?.suffix || '';
+      const lang   = card.lang === 'Japanese' ? 'JP' : 'EN';
+      return `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${card.number}${suffix}_${lang}.webp`;
+    }
+    return `https://images.pokemontcg.io/${card.setId}/${card.number}_hires.png`;
+  }
+
   /* ─── Build CSV rows for one group ─── */
   function buildGroupRows(group) {
     const { meta, cards } = group;
@@ -209,17 +221,23 @@ const CSV = (() => {
 
     /* Variation child rows — Action must be BLANK on child rows, not 'Add' */
     sorted.forEach((c, i) => {
+      const varName = allVarNames[i];
+      const imgUrl  = getCardImageUrl(c);
+      // Per-variation PicURL format: "Card=VariationName=ImageURL"
+      const varPicUrl = `Card=${varName}=${imgUrl}`;
+
       rows.push([
         '',   // Action — blank for variation rows
         '', '', '', // Title, Category, ConditionID — blank
         c.price.toFixed(2),   // StartPrice
         c.qty,                // Quantity
-        '', '', '', '',       // Format, Duration, Description, PicURL — blank
+        '', '', '',           // Format, Duration, Description — blank
+        varPicUrl,            // PicURL — "Card=VarName=ImageURL" for per-variation photo
         '', '', '', '',       // Shipping fields — blank
         '', '', '',           // Location, Dispatch, Returns — blank
         '', '',               // C:Game, C:Card Condition — blank on children
         'Variation',          // Relationship
-        `Card=${allVarNames[i]}`  // RelationshipDetails = "Card=OP15-001 Luffy SR"
+        `Card=${varName}`     // RelationshipDetails
       ].map(esc).join(','));
     });
 
