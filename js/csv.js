@@ -41,7 +41,7 @@ const CSV = (() => {
     'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
     'ShippingService-1:FreeShipping',
     'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption',
-    'C:Game', 'C:Card Condition',
+    'C:Game', 'CD:40001',
     'Relationship', 'RelationshipDetails'
   ];
 
@@ -148,12 +148,14 @@ const CSV = (() => {
   }
 
   function ebayCardCondition(cond) {
+    // Numeric IDs per ShipScript/eBay for category 183454 (CCG) and 2536 (Pokemon)
+    // Near mint or better=400010, Lightly played=400015, Moderately played=400016
     const map = {
-      'Near Mint':        'Near Mint or Better',
-      'Lightly Played':   'Lightly Played',
-      'Moderately Played':'Moderately Played'
+      'Near Mint':        '400010',
+      'Lightly Played':   '400015',
+      'Moderately Played':'400016'
     };
-    return map[cond] || 'Near Mint or Better';
+    return map[cond] || '400010';
   }
 
   /* ─── Build CSV rows for one group ─── */
