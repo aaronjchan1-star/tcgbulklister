@@ -102,24 +102,24 @@ const UI = (() => {
     statusEl.textContent = 'Checking variants...';
     statusEl.className   = 'lookup-status';
 
-    // Probe images and fetch card name in parallel
-    const [results, cardName] = await Promise.all([
-      Promise.all(
-        OP_VARIANTS.map(async v => {
-          const url   = opImageUrl(number, v.suffix, lang);
-          const valid = await checkImage(url);
-          return valid ? { ...v, url } : null;
-        })
-      ),
-      fetchOPCardName(number)
-    ]);
+    // Probe images immediately, fetch name in background (don't block on it)
+    const imagePromise = Promise.all(
+      OP_VARIANTS.map(async v => {
+        const url   = opImageUrl(number, v.suffix, lang);
+        const valid = await checkImage(url);
+        return valid ? { ...v, url } : null;
+      })
+    );
 
-    // Auto-populate card name if field is empty
-    if (cardName) {
-      const nameField = document.getElementById('f-op-name');
-      if (!nameField.value.trim()) nameField.value = cardName;
-    }
+    // Name lookup runs in background — fills field whenever it resolves
+    fetchOPCardName(number).then(cardName => {
+      if (cardName) {
+        const nameField = document.getElementById('f-op-name');
+        if (!nameField.value.trim()) nameField.value = cardName;
+      }
+    });
 
+    const results = await imagePromise;
     const found = results.filter(Boolean);
 
     if (found.length === 0) {

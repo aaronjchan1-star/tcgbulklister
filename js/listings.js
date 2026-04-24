@@ -54,13 +54,12 @@ const Listings = (() => {
       const variant = UI.getSelectedOPVariant();
 
       if (!number) { alert('Please enter a card number (e.g. OP05-119).'); return; }
-      if (!name)   { alert('Please enter a card name.'); return; }
-      if (!variant) { alert('Press Enter or click "Search variants" to load card images first.'); return; }
+      if (!variant) { alert('Press Enter to search for the card first.'); return; }
 
       card = {
         game: 'onePiece',
         number,
-        name,
+        name: name || number,  // fall back to card number if name not yet populated
         lang,
         cond,
         qty,
