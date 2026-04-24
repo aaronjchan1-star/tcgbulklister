@@ -364,21 +364,23 @@ const CSV = (() => {
   // Language: leave blank for English, write "Japanese" for JP
   // Qty: leave blank or 1 for single. Write 2/3/4 for lots (becomes standalone lot listing)
   function downloadTemplate() {
-    const headers = ['Number', 'Qty', 'Language'];
+    const headers = ['Number', 'Qty', 'Language', 'Listing Type'];
     const examples = [
-      ['OP01-060', '1', ''],
-      ['OP15-113', '1', ''],
-      ['OP14-031', '1', 'Japanese'],
-      ['OP13-029', '3', ''],
-      ['EB01-012', '4', ''],
+      ['OP01-060', '1', '', 'set'],
+      ['OP15-113', '3', '', 'set'],
+      ['OP14-031', '1', 'Japanese', 'set'],
+      ['OP13-029', '3', '', 'lot'],
+      ['EB01-012', '4', '', 'lot'],
     ];
     const notes = [
       [''],
       ['# HOW TO USE:'],
-      ['# Number  — card number e.g. OP01-060'],
-      ['# Qty     — quantity. Leave blank or 1 for single card. 2/3/4 = standalone lot listing'],
-      ['# Language — leave blank for English, write Japanese for JP cards'],
-      ['# Everything else (name, price, condition) is handled automatically by the site'],
+      ['# Number       — card number e.g. OP01-060'],
+      ['# Qty          — how many copies you have. 3 copies of an SR = qty 3'],
+      ['# Language     — leave blank for English. Write Japanese for JP cards'],
+      ['# Listing Type — set = add to the set variation listing (default)'],
+      ['#                lot = standalone bundle listing (e.g. 3x Nami lot)'],
+      ['# Everything else (name price condition) is handled automatically'],
     ];
     const rows = [headers, ...examples, ...notes].map(r => r.map(esc).join(',')).join('\r\n');
     triggerDownload(rows, 'tcg_lister_template.csv');
@@ -402,9 +404,10 @@ const CSV = (() => {
         const startRow   = hasHeaders ? 1 : 0;
 
         // Column indices
-        const colNum  = hasHeaders ? headerLine.indexOf('number') : 0;
-        const colQty  = hasHeaders ? headerLine.indexOf('qty')    : 1;
-        const colLang = hasHeaders ? headerLine.indexOf('language'): 2;
+        const colNum   = hasHeaders ? headerLine.indexOf('number')      : 0;
+        const colQty   = hasHeaders ? headerLine.indexOf('qty')         : 1;
+        const colLang  = hasHeaders ? headerLine.indexOf('language')    : 2;
+        const colLtype = hasHeaders ? headerLine.indexOf('listingtype') : 3;
 
         const imported = [];
         let skipped    = 0;
@@ -413,14 +416,14 @@ const CSV = (() => {
           const vals   = parseCSVLine(lines[i]);
           if (vals.every(v => !v.trim())) continue;
 
-          const number = (vals[colNum]  || '').trim().toUpperCase();
-          const qtyRaw = parseInt(vals[colQty] || '1') || 1;
-          const lang   = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
+          const number   = (vals[colNum]  || '').trim().toUpperCase();
+          const qtyRaw   = parseInt(vals[colQty] || '1') || 1;
+          const lang     = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
+          const ltypeRaw = colLtype >= 0 ? (vals[colLtype] || '').trim().toLowerCase() : '';
+          // Listing type: explicit 'lot' column OR default to 'variation' (set listing)
+          const listingType = ltypeRaw === 'lot' ? 'lot' : 'variation';
 
           if (!number || !number.includes('-')) { skipped++; continue; }
-
-          // qty > 1 = standalone lot listing, qty = 1 = variation (set listing)
-          const listingType = qtyRaw > 1 ? 'lot' : 'variation';
 
           imported.push({
             game:        'onePiece',
