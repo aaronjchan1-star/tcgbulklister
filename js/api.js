@@ -1,18 +1,15 @@
 /**
  * api.js
- * eBay Finding API — last sold price lookup.
- * Uses multiple CORS proxies with fallback.
+ * Price lookup — opens eBay AU sold listings search in a new tab.
+ * The eBay Finding API is blocked by CORS proxies due to eBay's datacenter IP restrictions,
+ * so we use direct eBay search links instead.
  */
 
 const API = (() => {
-  const STORAGE_KEY      = 'ebay_app_id';
-  const FINDING_ENDPOINT = 'https://svcs.ebay.com/services/search/FindingService/v1';
+  const STORAGE_KEY = 'ebay_app_id';
 
-  const PROXIES = [
-    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  ];
+  // Base URL for eBay AU completed/sold listings search
+  const EBAY_SOLD_BASE = 'https://www.ebay.com.au/sch/i.html?LH_Sold=1&LH_Complete=1&_sacat=0&_nkw=';
 
   let appId = localStorage.getItem(STORAGE_KEY) || '';
 
@@ -26,214 +23,91 @@ const API = (() => {
     }
     appId = val;
     localStorage.setItem(STORAGE_KEY, val);
-    statusEl.textContent = 'Key saved. Ready to fetch prices.';
+    statusEl.textContent = 'Key saved.';
     statusEl.className   = 'api-status ok';
   }
 
-  function buildFindingUrl(keywords, categoryId) {
-    // No listing type filter — includes both Fixed Price and Auctions for more results
-    // No currency filter — AU results will still show AUD prices
-    return [
-      FINDING_ENDPOINT,
-      '?OPERATION-NAME=findCompletedItems',
-      '&SERVICE-VERSION=1.0.0',
-      `&SECURITY-APPNAME=${encodeURIComponent(appId)}`,
-      '&RESPONSE-DATA-FORMAT=JSON',
-      `&keywords=${encodeURIComponent(keywords)}`,
-      `&categoryId=${categoryId}`,
-      '&itemFilter(0).name=SoldItemsOnly',
-      '&itemFilter(0).value=true',
-      '&itemFilter(1).name=Currency',
-      '&itemFilter(1).value=AUD',
-      '&sortOrder=EndTimeSoonest',
-      '&paginationInput.entriesPerPage=10'
-    ].join('');
-  }
-
-  async function tryFetch(findingUrl) {
-    let lastError = null;
-    for (let i = 0; i < PROXIES.length; i++) {
-      try {
-        const proxyUrl = PROXIES[i](findingUrl);
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) {
-          lastError = new Error(`Proxy ${i+1} returned ${res.status}`);
-          continue;
-        }
-
-        const text = await res.text();
-        let jsonText = text;
-
-        // allorigins wraps response in {contents: "..."}
-        try {
-          const outer = JSON.parse(text);
-          if (outer.contents) jsonText = outer.contents;
-        } catch(e) { /* raw JSON, use as-is */ }
-
-        const data = JSON.parse(jsonText);
-        const root = data?.findCompletedItemsResponse?.[0];
-        const ack  = root?.ack?.[0];
-
-        if (ack === 'Success') return root;
-
-        // eBay returned a real error — no point retrying other proxies
-        const msg = root?.errorMessage?.[0]?.error?.[0]?.message?.[0] || 'eBay API error';
-        throw new Error(msg);
-
-      } catch(err) {
-        if (err.message && (
-          err.message.includes('eBay') ||
-          err.message.includes('Invalid') ||
-          err.message.includes('Unsupported')
-        )) {
-          throw err; // Real eBay error, don't retry
-        }
-        lastError = err;
-        // Try next proxy
-      }
-    }
-    throw lastError || new Error('All proxies failed — try again shortly.');
-  }
-
-  async function fetchPrice(keywords, categoryId) {
-    if (!appId) throw new Error('No API key saved.');
-    const root = await tryFetch(buildFindingUrl(keywords, categoryId));
-
-    const items = root?.searchResult?.[0]?.item;
-    if (!items || items.length === 0) return null;
-
-    const prices = items
-      .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__))
-      .filter(p => !isNaN(p) && p > 0)
-      .sort((a, b) => a - b);
-
-    if (prices.length === 0) return null;
-
-    // Use median to avoid outliers
-    return prices[Math.floor(prices.length / 2)];
-  }
-
-  function buildKeywords(card) {
-    if (card.game === 'onePiece') {
-      // Keep it simple — card number is unique enough
-      return `${card.number} One Piece card`;
-    }
-    // For Pokémon, name + set name is more reliable than number alone
-    return `${card.name} ${card.setName} Pokemon card`.trim();
-  }
-
-  /* ─── Single lookup from form ─── */
-  async function lookup() {
+  /* ─── Open eBay sold search for a single card ─── */
+  function lookup() {
     const game = Listings.getGame();
-    let keywords, statusEl, labelEl, btn, categoryId;
+    let query, statusEl;
 
     if (game === 'onePiece') {
-      const cardNumber = document.getElementById('f-op-number').value.trim().toUpperCase();
-      if (!cardNumber) {
-        setStatus('lookup-status', 'Enter a card number first.', 'err');
+      const number = document.getElementById('f-op-number').value.trim().toUpperCase();
+      const lang   = document.getElementById('f-op-lang').value;
+      const name   = document.getElementById('f-op-name').value.trim();
+      statusEl = document.getElementById('lookup-status');
+
+      if (!number) {
+        statusEl.textContent = 'Enter a card number first.';
+        statusEl.className   = 'lookup-status err';
         return;
       }
-      keywords   = `${cardNumber} One Piece card`;
-      categoryId = '183454';
-      statusEl   = document.getElementById('lookup-status');
-      labelEl    = document.getElementById('lookup-label');
-      btn        = document.getElementById('btn-lookup');
+
+      query = `${number} One Piece${name ? ' ' + name : ''}${lang === 'Japanese' ? ' Japanese' : ''}`;
+
     } else {
       const selected = UI.getSelectedPokemonCard();
       const name     = document.getElementById('f-pk-name').value.trim();
       const number   = document.getElementById('f-pk-number').value.trim();
-      if (!number && !name) {
-        setStatus('pk-lookup-status', 'Search for a card first.', 'err');
+      statusEl = document.getElementById('pk-lookup-status');
+
+      if (!name && !number) {
+        statusEl.textContent = 'Search for a card first.';
+        statusEl.className   = 'lookup-status err';
         return;
       }
-      const setName  = selected?.set?.name || '';
-      keywords   = `${name} ${setName} Pokemon card`.trim();
-      categoryId = '2536';
-      statusEl   = document.getElementById('pk-lookup-status');
-      labelEl    = null;
-      btn        = null;
+
+      const setName = selected?.set?.name || '';
+      query = `${name} ${setName} Pokemon card`.trim();
     }
 
-    if (!appId) {
-      statusEl.textContent = 'No API key — paste your eBay App ID above.';
-      statusEl.className   = 'lookup-status err';
+    const url = EBAY_SOLD_BASE + encodeURIComponent(query);
+    window.open(url, '_blank');
+
+    statusEl.textContent = 'eBay sold listings opened in a new tab — enter the price manually.';
+    statusEl.className   = 'lookup-status ok';
+  }
+
+  /* ─── Bulk: open eBay search for all unpriced cards ─── */
+  function bulkFetch() {
+    const items    = Listings.getItems();
+    const unpriced = items.filter(c => !c.price || c.price === 0);
+
+    if (unpriced.length === 0) {
+      alert('All cards already have prices.');
       return;
     }
 
-    if (btn)     btn.disabled        = true;
-    if (labelEl) labelEl.textContent = 'Fetching...';
-    statusEl.textContent = 'Searching eBay AU sold listings...';
-    statusEl.className   = 'lookup-status';
-
-    try {
-      const median = await fetchPrice(keywords, categoryId);
-      if (median === null) {
-        statusEl.textContent = 'No recent AU sold listings found — try a broader search or set price manually.';
-        statusEl.className   = 'lookup-status err';
-      } else {
-        document.getElementById('f-price').value = median.toFixed(2);
-        statusEl.textContent = `Median $${median.toFixed(2)} AUD from recent eBay AU sales`;
-        statusEl.className   = 'lookup-status ok';
-      }
-    } catch (err) {
-      statusEl.textContent = `Lookup failed: ${err.message}`;
-      statusEl.className   = 'lookup-status err';
-    } finally {
-      if (btn)     btn.disabled        = false;
-      if (labelEl) labelEl.textContent = 'Fetch price';
+    if (unpriced.length > 5) {
+      if (!confirm(`This will open ${unpriced.length} eBay search tabs. Your browser may block some. Continue?`)) return;
     }
-  }
 
-  /* ─── Bulk price fetch ─── */
-  async function bulkFetch() {
-    if (!appId) { alert('Paste your eBay API key first.'); return; }
-
-    const items    = Listings.getItems();
-    const unpriced = items.map((c, i) => ({ card: c, index: i }))
-                          .filter(({ card }) => !card.price || card.price === 0);
-
-    if (unpriced.length === 0) { alert('All cards already have prices.'); return; }
-
-    const btn      = document.getElementById('bulk-fetch-btn');
-    const statusEl = document.getElementById('bulk-status');
-    btn.disabled   = true;
-    statusEl.style.display = 'block';
-
-    let success = 0, failed = 0;
-
-    for (let i = 0; i < unpriced.length; i++) {
-      const { card, index } = unpriced[i];
-      statusEl.textContent  = `Fetching ${i + 1} of ${unpriced.length}: ${card.number || card.name}...`;
-
-      try {
-        const keywords   = buildKeywords(card);
-        const categoryId = card.game === 'pokemon' ? '2536' : '183454';
-        const median     = await fetchPrice(keywords, categoryId);
-        if (median !== null) {
-          Listings.updatePrice(index, median);
-          success++;
+    unpriced.forEach((card, i) => {
+      setTimeout(() => {
+        let query;
+        if (card.game === 'onePiece') {
+          query = `${card.number} One Piece${card.name ? ' ' + card.name : ''}${card.lang === 'Japanese' ? ' Japanese' : ''}`;
         } else {
-          failed++;
+          query = `${card.name} ${card.setName} Pokemon card`.trim();
         }
-      } catch(e) {
-        failed++;
-      }
+        window.open(EBAY_SOLD_BASE + encodeURIComponent(query), '_blank');
+      }, i * 300); // stagger to avoid popup blocker
+    });
 
-      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 800));
+    const statusEl = document.getElementById('bulk-status');
+    statusEl.style.display = 'block';
+    statusEl.textContent   = `Opened ${unpriced.length} eBay search tab${unpriced.length !== 1 ? 's' : ''} — enter prices manually then close tabs.`;
+    setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+  }
+
+  // Restore key on load
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      document.getElementById('api-key-input').value = saved;
     }
-
-    statusEl.textContent = `Done — ${success} priced, ${failed} not found on eBay AU.`;
-    btn.disabled = false;
-    Listings.render();
-    setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
-  }
-
-  function setStatus(elId, msg, type) {
-    const el = document.getElementById(elId);
-    if (!el) return;
-    el.textContent = msg;
-    el.className   = `lookup-status ${type}`;
-  }
+  });
 
   return { save, lookup, bulkFetch };
 })();

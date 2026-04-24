@@ -4,7 +4,7 @@
  */
 
 const Listings = (() => {
-  const OP_IMG      = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece';
+  const OP_CDN      = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece';
   const PKM_IMG     = 'https://images.pokemontcg.io';
   const STORAGE_KEY = 'tcg_listings';
 
@@ -21,24 +21,23 @@ const Listings = (() => {
   }
 
   function imageUrl(item) {
-    // Use stored imageUrl if available (Pokémon from API)
     if (item.imageUrl) return item.imageUrl;
-    if (item.game === 'pokemon') {
-      return `${PKM_IMG}/${item.setId}/${item.number}_hires.png`;
-    }
+    if (item.game === 'pokemon') return `${PKM_IMG}/${item.setId}/${item.number}_hires.png`;
     const set     = item.number.split('-')[0].toUpperCase();
+    const suffix  = item.variant?.suffix || '';
     const langTag = item.lang === 'Japanese' ? 'JP' : 'EN';
-    return `${OP_IMG}/${set}/${item.number}_${langTag}.webp`;
+    return `${OP_CDN}/${set}/${item.number}${suffix}_${langTag}.webp`;
   }
 
   function imageUrlFromFields(game) {
-    if (game === 'pokemon') return null; // Pokémon now uses API search
+    if (game === 'pokemon') return null;
+    const variant = UI.getSelectedOPVariant();
+    if (variant) return variant.url;
     const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
     const lang    = document.getElementById('f-op-lang').value;
     if (!number || !number.includes('-')) return null;
     const set     = number.split('-')[0];
-    const langTag = lang === 'Japanese' ? 'JP' : 'EN';
-    return `${OP_IMG}/${set}/${number}_${langTag}.webp`;
+    return `${OP_CDN}/${set}/${number}_${lang === 'Japanese' ? 'JP' : 'EN'}.webp`;
   }
 
   function add() {
@@ -47,14 +46,29 @@ const Listings = (() => {
     let card;
 
     if (currentGame === 'onePiece') {
-      const number = document.getElementById('f-op-number').value.trim().toUpperCase();
-      const name   = document.getElementById('f-op-name').value.trim();
-      const lang   = document.getElementById('f-op-lang').value;
-      const cond   = document.getElementById('f-op-cond').value;
-      const qty    = parseInt(document.getElementById('f-op-qty').value) || 1;
-      if (!number) { alert('Please enter a card number (e.g. OP01-060).'); return; }
+      const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
+      const name    = document.getElementById('f-op-name').value.trim();
+      const lang    = document.getElementById('f-op-lang').value;
+      const cond    = document.getElementById('f-op-cond').value;
+      const qty     = parseInt(document.getElementById('f-op-qty').value) || 1;
+      const variant = UI.getSelectedOPVariant();
+
+      if (!number) { alert('Please enter a card number (e.g. OP05-119).'); return; }
       if (!name)   { alert('Please enter a card name.'); return; }
-      card = { game: 'onePiece', number, name, lang, cond, qty, price, post };
+      if (!variant) { alert('Press Enter or click "Search variants" to load card images first.'); return; }
+
+      card = {
+        game: 'onePiece',
+        number,
+        name,
+        lang,
+        cond,
+        qty,
+        price,
+        post,
+        variant: { suffix: variant.suffix, label: variant.label },
+        imageUrl: variant.url
+      };
 
     } else {
       const selected = UI.getSelectedPokemonCard();
@@ -64,14 +78,14 @@ const Listings = (() => {
       const qty  = parseInt(document.getElementById('f-pk-qty').value) || 1;
       const printedNum = `${selected.number}/${selected.set.printedTotal || selected.set.total}`;
       card = {
-        game:      'pokemon',
-        setId:     selected.set.id,
-        setName:   selected.set.name,
-        number:    selected.number,
+        game:         'pokemon',
+        setId:        selected.set.id,
+        setName:      selected.set.name,
+        number:       selected.number,
         printedNumber: printedNum,
         name,
-        imageUrl:  selected.images?.large || selected.images?.small || '',
-        lang:      'English',
+        imageUrl:     selected.images?.large || selected.images?.small || '',
+        lang:         'English',
         cond,
         qty,
         price,
@@ -90,38 +104,31 @@ const Listings = (() => {
       document.getElementById('f-op-number').value = '';
       document.getElementById('f-op-name').value   = '';
       document.getElementById('f-op-qty').value    = '1';
-      document.getElementById('card-preview').style.display = 'none';
-      document.getElementById('lookup-status').textContent  = '';
+      document.getElementById('card-preview').style.display     = 'none';
+      document.getElementById('op-card-picker').style.display   = 'none';
+      document.getElementById('op-card-grid').innerHTML         = '';
+      document.getElementById('lookup-status').textContent      = '';
       document.getElementById('f-op-number').focus();
     } else {
-      document.getElementById('f-pk-number').value = '';
-      document.getElementById('f-pk-qty').value    = '1';
-      document.getElementById('pk-card-picker').style.display = 'none';
-      document.getElementById('pk-card-grid').innerHTML        = '';
-      document.getElementById('pk-card-preview').style.display = 'none';
-      document.getElementById('pk-lookup-status').textContent  = '';
-      document.getElementById('f-pk-name').value               = '';
+      document.getElementById('f-pk-number').value              = '';
+      document.getElementById('f-pk-qty').value                 = '1';
+      document.getElementById('pk-card-picker').style.display   = 'none';
+      document.getElementById('pk-card-grid').innerHTML         = '';
+      document.getElementById('pk-card-preview').style.display  = 'none';
+      document.getElementById('pk-lookup-status').textContent   = '';
+      document.getElementById('f-pk-name').value                = '';
       document.getElementById('f-pk-number').focus();
     }
     document.getElementById('f-price').value = '';
   }
 
-  function remove(index) {
-    items.splice(index, 1);
-    save();
-    render();
-  }
+  function remove(index) { items.splice(index, 1); save(); render(); }
 
-  function updatePrice(index, price) {
-    items[index].price = price;
-    save();
-    render();
-  }
+  function updatePrice(index, price) { items[index].price = price; save(); render(); }
 
   function getAll()   { return items; }
   function getItems() { return items; }
 
-  /* ─── Save / Load ─── */
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -142,7 +149,7 @@ const Listings = (() => {
 
   function clearAll() {
     if (items.length === 0) return;
-    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}?`)) return;
     items = [];
     localStorage.removeItem(STORAGE_KEY);
     render();
@@ -152,19 +159,19 @@ const Listings = (() => {
   function showSaveStatus(msg) {
     const el = document.getElementById('save-status');
     if (!el) return;
-    el.textContent  = msg;
+    el.textContent   = msg;
     el.style.opacity = '1';
     clearTimeout(el._t);
     el._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
   }
 
-  /* ─── Render ─── */
   function gameLabel(item)      { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
   function gameBadgeClass(item) { return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
 
   function subLabel(item) {
     if (item.game === 'pokemon') return item.setName || item.setId;
-    return item.lang === 'Japanese' ? 'JP' : 'EN';
+    const variantLabel = item.variant?.label && item.variant.label !== 'Standard' ? ` ${item.variant.label}` : '';
+    return (item.lang === 'Japanese' ? 'JP' : 'EN') + variantLabel;
   }
 
   function displayNumber(item) {
@@ -217,9 +224,9 @@ const Listings = (() => {
     const totalUnits = items.reduce((s, l) => s + l.qty, 0);
     const totalVal   = items.reduce((s, l) => s + (l.price || 0) * l.qty, 0);
     const unpriced   = items.filter(l => !l.price || l.price === 0).length;
-    document.getElementById('stat-count').textContent   = totalUnits;
-    document.getElementById('stat-total').textContent   = '$' + totalVal.toFixed(2);
-    document.getElementById('stat-avg').textContent     = totalUnits > 0 ? '$' + (totalVal / totalUnits).toFixed(2) : '—';
+    document.getElementById('stat-count').textContent = totalUnits;
+    document.getElementById('stat-total').textContent = '$' + totalVal.toFixed(2);
+    document.getElementById('stat-avg').textContent   = totalUnits > 0 ? '$' + (totalVal / totalUnits).toFixed(2) : '—';
     const u = document.getElementById('stat-unpriced');
     if (u) u.textContent = unpriced;
   }

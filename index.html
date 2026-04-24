@@ -11,18 +11,15 @@
 
   <div class="header">
     <h1>TCG eBay AU Bulk Lister</h1>
-    <p>One Piece &amp; Pokémon — add cards, bulk fetch prices, export your eBay CSV.</p>
+    <p>One Piece &amp; Pokémon — add cards, open eBay sold searches, export your eBay CSV.</p>
   </div>
 
   <!-- API Key -->
   <div class="api-banner">
-    <strong>eBay API key required for price lookup</strong>
-    <p>Get a free key at <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a> → My Account → Application Keys → Production App ID (Client ID).</p>
-    <div class="api-row">
-      <input type="text" id="api-key-input" placeholder="Paste your eBay Production Client ID..." />
-      <button onclick="API.save()">Save</button>
-    </div>
-    <div class="api-status" id="api-status"></div>
+    <strong>eBay price lookup</strong>
+    <p><p>Click "Check eBay" next to a card to open the sold listings in a new tab, then enter the price manually.</p>
+    <div class="api-status" id="api-status" style="display:none;"></div>
+    <input type="hidden" id="api-key-input" />
   </div>
 
   <!-- Stats -->
@@ -46,14 +43,15 @@
     <div id="op-fields">
       <div class="form-row row-5" style="margin-bottom:12px;">
         <div class="field">
-          <label>Card number</label>
+          <label>Card number <span style="color:var(--text-muted); font-weight:400;">— press Enter to search</span></label>
           <div class="input-action-row">
-            <input type="text" id="f-op-number" placeholder="e.g. OP01-060" maxlength="12" />
-            <button class="btn-lookup" id="btn-lookup" onclick="API.lookup()">
-              <span id="lookup-label">Fetch price</span>
-            </button>
+            <input type="text" id="f-op-number" placeholder="e.g. OP05-119" maxlength="12" />
+            <button class="btn-lookup" onclick="UI.searchOPVariants()">Search</button>
           </div>
           <div class="lookup-status" id="lookup-status"></div>
+          <!-- hidden fields to store selected variant -->
+          <input type="hidden" id="f-op-suffix" value="" />
+          <input type="hidden" id="f-op-variant-label" value="" />
           <div id="card-preview" style="display:none; margin-top:8px;">
             <img id="card-preview-img" src="" alt="" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
           </div>
@@ -81,6 +79,12 @@
           <label>Qty</label>
           <input type="number" id="f-op-qty" value="1" min="1" max="99" />
         </div>
+      </div>
+
+      <!-- One Piece variant picker -->
+      <div id="op-card-picker" style="display:none;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Multiple variants found — click the correct one:</p>
+        <div id="op-card-grid" class="pk-picker"></div>
       </div>
     </div>
 
@@ -116,7 +120,7 @@
         </div>
       </div>
 
-      <!-- Card picker grid -->
+      <!-- Pokémon card picker grid -->
       <div id="pk-card-picker" style="display:none;">
         <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Multiple cards found — click the correct one:</p>
         <div id="pk-card-grid" class="pk-picker"></div>
@@ -169,7 +173,7 @@
     <div id="listings-list"></div>
 
     <div id="action-bar" style="display:none; margin-top:16px;">
-      <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none;">Fetch prices for unpriced cards</button>
+      <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none;">Open eBay sold search for unpriced cards</button>
       <div id="bulk-status" class="bulk-status" style="display:none;"></div>
       <button class="btn-download" onclick="CSV.download()" style="margin-top:10px;">&#8595; Download eBay CSV</button>
       <p class="hint">Upload via: eBay Seller Hub › Listings › Bulk listing upload › File Exchange</p>
