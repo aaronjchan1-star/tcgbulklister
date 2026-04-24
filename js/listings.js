@@ -123,7 +123,18 @@ const Listings = (() => {
 
   function remove(index) { items.splice(index, 1); save(); render(); }
 
-  function updatePrice(index, price) { items[index].price = price; save(); render(); }
+  function updatePrice(index, price, priceData) {
+    items[index].price = price;
+    if (priceData) {
+      items[index].priceLow      = priceData.low;
+      items[index].priceHigh     = priceData.high;
+      items[index].priceConf     = priceData.confidence;
+      items[index].priceNotes    = priceData.notes;
+      items[index].priceSource   = 'claude';
+    }
+    save();
+    render();
+  }
 
   function getAll()   { return items; }
   function getItems() { return items; }
@@ -178,8 +189,15 @@ const Listings = (() => {
   }
 
   function priceCell(item) {
-    if (!item.price || item.price === 0) return `<span class="price-missing">—</span>`;
-    return `<span>$${item.price.toFixed(2)}</span>`;
+    if (!item.price || item.price === 0) {
+      const url = API.getEbayUrl(item);
+      return `<a href="${url}" target="_blank" class="price-missing price-lookup" title="Check eBay sold prices">— eBay ↗</a>`;
+    }
+    const confColor = item.priceConf === 'high' ? 'var(--green)' : item.priceConf === 'low' ? 'var(--amber)' : 'var(--text)';
+    const confDot   = item.priceSource === 'claude'
+      ? `<span title="${item.priceConf || ''} confidence${item.priceNotes ? ': ' + item.priceNotes : ''}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${confColor};margin-left:4px;vertical-align:middle;cursor:help;"></span>`
+      : '';
+    return `<span>$${item.price.toFixed(2)}${confDot}</span>`;
   }
 
   function render() {
