@@ -30,23 +30,19 @@ const API = (() => {
 
   function buildKeywords(card) {
     if (card.game === 'onePiece') {
-      const variant = card.variant?.label && card.variant.label !== 'Standard'
-        ? ` ${card.variant.label}` : '';
-      return `${card.number}${variant} One Piece${card.lang === 'Japanese' ? ' Japanese' : ''}`;
+      // Keep it broad — just number + "One Piece" gets best results
+      // Variant/language filtering done by user when they verify via eBay link
+      return `${card.number} One Piece`;
     }
     return `${card.name} ${card.setName} Pokemon`.trim();
   }
 
   function buildSearchKeywords(game) {
     if (game === 'onePiece') {
-      const number  = document.getElementById('f-op-number').value.trim().toUpperCase();
-      const lang    = document.getElementById('f-op-lang').value;
-      const name    = document.getElementById('f-op-name').value.trim();
-      const variant = UI.getSelectedOPVariant();
-      const variantLabel = variant?.label && variant.label !== 'Standard' ? ` ${variant.label}` : '';
-      return `${number}${variantLabel}${name ? ' ' + name : ''} One Piece${lang === 'Japanese' ? ' Japanese' : ''}`;
+      const number = document.getElementById('f-op-number').value.trim().toUpperCase();
+      return `${number} One Piece`;
     }
-    const name    = document.getElementById('f-pk-name').value.trim();
+    const name     = document.getElementById('f-pk-name').value.trim();
     const selected = UI.getSelectedPokemonCard();
     const setName  = selected?.set?.name || '';
     return `${name} ${setName} Pokemon`.trim();
