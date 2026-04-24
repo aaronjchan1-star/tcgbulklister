@@ -11,7 +11,8 @@ const CSV = (() => {
     'StartPrice', 'BuyItNowPrice', 'Format', 'Duration',
     'Description', 'PicURL',
     'ShippingType', 'ShippingService-1:Option', 'ShippingService-1:Cost',
-    'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption', 'PaymentProfileName'
+    'ShippingService-1:FreeShipping',
+    'Location', 'DispatchTimeMax', 'ReturnsAcceptedOption'
   ];
 
   const CONDITION_MAP = {
@@ -103,12 +104,12 @@ const CSV = (() => {
       buildDescription(card),
       buildPicUrl(card),
       shippingType,
-      'AU_Standard',
+      'AU_Regular',
       shippingCost,
+      card.post === 0 ? '1' : '0',
       'Sydney, NSW',
       '3',
-      'ReturnsNotAccepted',
-      'eBay Managed Payments'
+      'ReturnsNotAccepted'
     ].map(esc).join(',');
   }
 
