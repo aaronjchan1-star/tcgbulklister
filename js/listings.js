@@ -11,10 +11,13 @@ const Listings = (() => {
   let items       = [];
   let currentGame = 'onePiece';
 
-  // Strip parenthetical set codes from stored names e.g. "Nami (OP14" → "Nami"
+  // Strip parenthetical set codes from stored names
+  // Handles: "Nami (OP14" → "Nami", "Luffy (OP12" → "Luffy"
+  // But preserves legitimate parentheses in names like "Monkey D. Luffy"
   function cleanName(name) {
     if (!name) return '';
-    return name.replace(/\s*\(.*$/, '').trim();
+    // Remove trailing ( followed by set code pattern e.g. (OP12, (EB01, (PRB02
+    return name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*$/, '').trim();
   }
 
   function sanitiseCard(card) {
@@ -63,7 +66,11 @@ const Listings = (() => {
       const cond    = document.getElementById('f-op-cond').value;
       const qty         = parseInt(document.getElementById('f-op-qty').value) || 1;
       const rarity      = document.getElementById('f-op-rarity')?.value || 'SR';
-      const listingType = document.getElementById('type-lot')?.classList.contains('active') ? 'lot' : 'variation';
+      const listingType = (() => {
+        const t = UI.getListingType ? UI.getListingType() : 'variation';
+        return t.startsWith('lot-') ? 'lot' : 'variation';
+      })();
+      const lotQty = listingType === 'lot' ? (UI.getLotQty ? UI.getLotQty() : parseInt(document.getElementById('f-op-qty').value) || 1) : qty;
       const variant     = UI.getSelectedOPVariant();
 
       if (!number) { alert('Please enter a card number (e.g. OP05-119).'); return; }
@@ -81,6 +88,7 @@ const Listings = (() => {
         post,
         rarity,
         listingType,
+        qty: listingType === 'lot' ? lotQty : qty,
         variant: variant ? { suffix: variant.suffix, label: variant.label } : { suffix: '', label: rarity },
         imageUrl: variant?.url || null
       };

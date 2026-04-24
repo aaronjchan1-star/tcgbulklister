@@ -353,25 +353,41 @@ const UI = (() => {
 
   function setListingType(type) {
     currentListingType = type;
-    document.getElementById('type-variation').classList.toggle('active', type === 'variation');
-    document.getElementById('type-lot').classList.toggle('active', type === 'lot');
-    document.getElementById('lot-label-wrap').style.display = type === 'lot' ? 'block' : 'none';
+    ['variation','lot-2','lot-3','lot-4'].forEach(t => {
+      const el = document.getElementById(`type-${t}`);
+      if (el) el.classList.toggle('active', type === t);
+    });
+    const isLot = type.startsWith('lot-');
+    document.getElementById('lot-label-wrap').style.display = isLot ? 'block' : 'none';
+    // Auto-set qty to match lot size
+    if (isLot) {
+      const qty = parseInt(type.split('-')[1]);
+      document.getElementById('f-op-qty').value = qty;
+    }
     updateLotPreview();
   }
 
-  function updateLotPreview() {
-    const number = document.getElementById('f-op-number').value.trim().toUpperCase();
-    const name   = document.getElementById('f-op-name').value.trim();
-    const qty    = document.getElementById('f-op-qty').value || '1';
-    const rarity = document.getElementById('f-op-rarity')?.value || 'SR';
-    const preview = document.getElementById('lot-title-preview');
-    if (!preview) return;
-    const displayName = (name || number) || '...';
-    preview.textContent = qty > 1 ? `${qty}x ${number} ${displayName} ${rarity}` : `${number} ${displayName} ${rarity}`;
+  function getLotQty() {
+    if (!currentListingType.startsWith('lot-')) return 1;
+    return parseInt(currentListingType.split('-')[1]) || 1;
   }
 
+  function updateLotPreview() {
+    const number   = document.getElementById('f-op-number').value.trim().toUpperCase();
+    const name     = document.getElementById('f-op-name').value.trim();
+    const rarity   = document.getElementById('f-op-rarity')?.value || 'SR';
+    const preview  = document.getElementById('lot-title-preview');
+    if (!preview) return;
+    const qty      = getLotQty();
+    const cleanedName = name.replace(/\s*\(.*$/, '').trim();
+    const displayName = (cleanedName || number) || '...';
+    preview.textContent = `${qty}x ${number} ${displayName} ${rarity} One Piece TCG`;
+  }
+
+  function getListingType() { return currentListingType; }
+
   return {
-    setGame, toggleCustomPost, setListingType,
+    setGame, toggleCustomPost, setListingType, getListingType, getLotQty,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
     searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard,
     updatePokemonPreview: () => {}

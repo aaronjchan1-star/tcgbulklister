@@ -108,9 +108,11 @@
       <!-- Listing type toggle -->
       <div class="listing-type-row" style="margin-bottom:12px;">
         <label style="font-size:12px; color:var(--text-muted); margin-bottom:6px; display:block;">Listing type</label>
-        <div style="display:flex; gap:6px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <button class="type-btn active" id="type-variation" onclick="UI.setListingType('variation')">Add to set listing</button>
-          <button class="type-btn" id="type-lot" onclick="UI.setListingType('lot')">Standalone lot</button>
+          <button class="type-btn" id="type-lot-2" onclick="UI.setListingType('lot-2')">2x Lot</button>
+          <button class="type-btn" id="type-lot-3" onclick="UI.setListingType('lot-3')">3x Lot</button>
+          <button class="type-btn" id="type-lot-4" onclick="UI.setListingType('lot-4')">4x Lot</button>
         </div>
         <div id="lot-label-wrap" style="display:none; margin-top:8px; font-size:12px; color:var(--text-muted);">
           Title preview: <span id="lot-title-preview" style="color:var(--text);">—</span>
