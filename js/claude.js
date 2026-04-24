@@ -47,8 +47,10 @@ const ClaudeAI = (() => {
 
       try {
         const result = await fetchPrice(card);
-        if (result.mid) {
-          Listings.updatePrice(index, result.mid, result);
+        // Enforce minimum $2.00 — anything lower means Claude has no data
+        const mid = result.mid && result.mid >= 2 ? result.mid : null;
+        if (mid) {
+          Listings.updatePrice(index, mid, result);
           success++;
           if (result.confidence === 'low') lowConf++;
         } else {

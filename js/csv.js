@@ -146,7 +146,22 @@ const CSV = (() => {
       alert('Add at least one card before downloading.');
       return;
     }
-    const items = sortItems(rawItems);
+
+    // Filter out unpriced/invalid cards — eBay AU minimum price is $1.00
+    const pricedItems   = rawItems.filter(c => c.price && c.price >= 1.00);
+    const unpricedCount = rawItems.length - pricedItems.length;
+
+    if (pricedItems.length === 0) {
+      alert('No cards have valid prices (minimum $1.00 on eBay AU). Use Claude AI Price Research or set prices manually.');
+      return;
+    }
+
+    if (unpricedCount > 0) {
+      const ok = confirm(`${unpricedCount} card${unpricedCount !== 1 ? 's are' : ' is'} unpriced and will be skipped.\n\nDownload CSV for the ${pricedItems.length} priced card${pricedItems.length !== 1 ? 's' : ''}?`);
+      if (!ok) return;
+    }
+
+    const items = sortItems(pricedItems);
     const rows = [HEADERS.join(','), ...items.map(buildRow)];
     const csv  = rows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

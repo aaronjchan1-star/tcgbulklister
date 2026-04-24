@@ -53,30 +53,50 @@ function buildPrompt(card) {
   if (card.game === 'onePiece') {
     const variant = card.variant?.label && card.variant.label !== 'Standard'
       ? ` (${card.variant.label})` : '';
-    return `You are a One Piece TCG pricing expert for the Australian eBay market. Give a price estimate in AUD for:
+    return `You are a One Piece TCG pricing expert for the Australian eBay market.
 
-Card: ${card.name || card.number}
-Number: ${card.number}${variant}
-Language: ${card.lang}
-Condition: ${card.cond}
+Estimate the eBay AU raw (ungraded) selling price in AUD for:
+- Card: ${card.name || card.number}
+- Number: ${card.number}${variant}
+- Language: ${card.lang}
+- Condition: ${card.cond}
+- Rarity: ${variant.includes('SEC') ? 'Secret Rare (SEC)' : variant.includes('SE') ? 'Special Rare (SE)' : 'Super Rare (SR)'}
 
-Raw/ungraded copies only. Australian market (typically 10-20% above US prices).
+Key pricing context:
+- Common One Piece SRs typically sell for $3–$15 AUD
+- Popular SRs (Luffy, Zoro, etc) sell for $10–$50 AUD
+- SE cards sell for $20–$200+ AUD
+- SEC cards sell for $50–$500+ AUD
+- Japanese cards typically 20-30% premium over English
+- Australian market is 10-20% above US prices
+- Never return a price below $2.00 AUD
 
-Respond ONLY with this JSON, nothing else:
-{"low": 0.00, "mid": 0.00, "high": 0.00, "confidence": "high|medium|low", "notes": "one sentence reason"}`;
+If you are uncertain, use $5.00 as the default mid price for common SRs.
+
+Respond ONLY with valid JSON, no other text:
+{"low": 0.00, "mid": 0.00, "high": 0.00, "confidence": "high|medium|low", "notes": "one sentence"}`;
   }
 
-  return `You are a Pokémon TCG pricing expert for the Australian eBay market. Give a price estimate in AUD for:
+  return `You are a Pokémon TCG pricing expert for the Australian eBay market.
 
-Card: ${card.name}
-Set: ${card.setName}
-Number: ${card.number}
-Condition: ${card.cond}
+Estimate the eBay AU raw (ungraded) selling price in AUD for:
+- Card: ${card.name}
+- Set: ${card.setName}
+- Number: ${card.number}
+- Condition: ${card.cond}
 
-Raw/ungraded copies only. Australian market pricing.
+Key pricing context:
+- Common rare cards typically sell for $2–$10 AUD
+- Holo rares sell for $5–$30 AUD
+- Ultra Rares / Full Arts sell for $15–$100 AUD
+- Special Illustration Rares sell for $30–$300+ AUD
+- Australian market is 10-20% above US prices
+- Never return a price below $2.00 AUD
 
-Respond ONLY with this JSON, nothing else:
-{"low": 0.00, "mid": 0.00, "high": 0.00, "confidence": "high|medium|low", "notes": "one sentence reason"}`;
+If uncertain, use $5.00 as the default mid price.
+
+Respond ONLY with valid JSON, no other text:
+{"low": 0.00, "mid": 0.00, "high": 0.00, "confidence": "high|medium|low", "notes": "one sentence"}`;
 }
 
 function parseResponse(text) {
