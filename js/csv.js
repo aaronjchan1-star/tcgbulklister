@@ -86,22 +86,32 @@ const CSV = (() => {
 
   /* ─── Titles / Descriptions ─── */
   function buildTitle(setId, setName, game, lang, cond) {
+    // Single consolidated listing title
     const raw = game === 'onePiece'
-      ? `One Piece TCG ${setId} ${setName}${lang === 'Japanese' ? ' Japanese' : ''} SR Cards ${cond}`
-      : `Pokemon TCG ${setName} Cards ${cond}`;
+      ? `One Piece TCG SR Singles${lang === 'Japanese' ? ' Japanese' : ''} Cards ${cond}`
+      : `Pokemon TCG Singles Cards ${cond}`;
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
 
   function buildDesc(cards, setId, setName, game) {
-    const list = cards.map(c => {
+    // Sort cards by set then number for the description list
+    const sorted = [...cards].sort((a, b) => {
+      const sa = getSetId(a), sb = getSetId(b);
+      if (sa !== sb) return sa.localeCompare(sb);
+      const na = parseInt((a.number.split('-')[1] || a.number).replace(/\D/g, '')) || 0;
+      const nb = parseInt((b.number.split('-')[1] || b.number).replace(/\D/g, '')) || 0;
+      return na - nb;
+    });
+
+    const list = sorted.map(c => {
       const hasName = c.name && c.name !== c.number;
       const variant = c.variant?.label && c.variant.label !== 'Standard' ? ` (${c.variant.label})` : '';
       return `• ${c.number}${hasName ? ' ' + c.name : ''}${variant} — $${c.price.toFixed(2)} AUD`;
     }).join('\n');
 
     const header = game === 'onePiece'
-      ? [`One Piece TCG — ${setId} ${setName}`, `Super Rare (SR) Cards — Near Mint / Raw (Ungraded)`]
-      : [`Pokemon TCG — ${setName}`, `Cards — Near Mint / Raw (Ungraded)`];
+      ? ['One Piece TCG SR Singles', 'Super Rare (SR) Cards — Near Mint / Raw (Ungraded)']
+      : ['Pokemon TCG Singles', 'Cards — Near Mint / Raw (Ungraded)'];
 
     return [
       ...header, '',
@@ -126,17 +136,16 @@ const CSV = (() => {
 
   /* ─── Grouping / Sorting ─── */
   function groupBySet(items) {
-    const groups = {};
-    for (const card of items) {
-      const key = `${card.game}|${getSetId(card)}|${card.lang || 'EN'}|${card.cond}`;
-      if (!groups[key]) groups[key] = { meta: card, cards: [] };
-      groups[key].cards.push(card);
-    }
-    return Object.values(groups);
+    // Single listing — all cards in one variation listing
+    if (items.length === 0) return [];
+    return [{ meta: items[0], cards: items }];
   }
 
   function sortCards(cards) {
     return [...cards].sort((a, b) => {
+      // Sort by set first, then by card number within set
+      const sa = getSetId(a), sb = getSetId(b);
+      if (sa !== sb) return sa.localeCompare(sb);
       const na = parseInt((a.number.split('-')[1] || a.number).replace(/\D/g, '')) || 0;
       const nb = parseInt((b.number.split('-')[1] || b.number).replace(/\D/g, '')) || 0;
       return na - nb;
