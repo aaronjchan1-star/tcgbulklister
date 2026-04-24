@@ -86,8 +86,9 @@ const CSV = (() => {
   }
 
   function buildRow(card) {
-    const shippingType   = card.post === 0 ? 'Free' : 'Flat';
-    const shippingCost   = card.post === 0 ? '0.00' : card.post.toFixed(2);
+    // eBay AU File Exchange: always use Flat, set cost to 0.00 for free shipping
+    const shippingType = 'Flat';
+    const shippingCost = card.post === 0 ? '0.00' : card.post.toFixed(2);
 
     return [
       'Add',
@@ -102,7 +103,7 @@ const CSV = (() => {
       buildDescription(card),
       buildPicUrl(card),
       shippingType,
-      'AU_Regular',
+      'AU_Standard',
       shippingCost,
       'Sydney, NSW',
       '3',
