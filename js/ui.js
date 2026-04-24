@@ -353,7 +353,7 @@ const UI = (() => {
 
   function setListingType(type) {
     currentListingType = type;
-    ['variation','lot-2','lot-3','lot-4'].forEach(t => {
+    ['variation','lot-1','lot-2','lot-3','lot-4'].forEach(t => {
       const el = document.getElementById(`type-${t}`);
       if (el) el.classList.toggle('active', type === t);
     });
@@ -381,7 +381,8 @@ const UI = (() => {
     const qty      = getLotQty();
     const cleanedName = name.replace(/\s*\(.*$/, '').trim();
     const displayName = (cleanedName || number) || '...';
-    preview.textContent = `${qty}x ${number} ${displayName} ${rarity} One Piece TCG`;
+    const qtyPart = qty > 1 ? `${qty}x ` : '';
+    preview.textContent = `${qtyPart}${number} ${displayName} One Piece TCG`;
   }
 
   function getListingType() { return currentListingType; }

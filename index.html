@@ -91,28 +91,18 @@
           <label>Qty</label>
           <input type="number" id="f-op-qty" value="1" min="1" max="99" />
         </div>
-        <div class="field">
-          <label>Rarity</label>
-          <select id="f-op-rarity">
-            <option value="SR">SR</option>
-            <option value="R">R</option>
-            <option value="UC">UC</option>
-            <option value="C">C</option>
-            <option value="SEC">SEC</option>
-            <option value="SE">SE</option>
-            <option value="L">L</option>
-          </select>
-        </div>
+        <input type="hidden" id="f-op-rarity" value="SR" />
       </div>
 
       <!-- Listing type toggle -->
       <div class="listing-type-row" style="margin-bottom:12px;">
         <label style="font-size:12px; color:var(--text-muted); margin-bottom:6px; display:block;">Listing type</label>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="type-btn active" id="type-variation" onclick="UI.setListingType('variation')">Add to set listing</button>
-          <button class="type-btn" id="type-lot-2" onclick="UI.setListingType('lot-2')">2x Lot</button>
-          <button class="type-btn" id="type-lot-3" onclick="UI.setListingType('lot-3')">3x Lot</button>
-          <button class="type-btn" id="type-lot-4" onclick="UI.setListingType('lot-4')">4x Lot</button>
+          <button class="type-btn active" id="type-variation" onclick="UI.setListingType('variation')">Set listing</button>
+          <button class="type-btn" id="type-lot-1" onclick="UI.setListingType('lot-1')">1x</button>
+          <button class="type-btn" id="type-lot-2" onclick="UI.setListingType('lot-2')">2x</button>
+          <button class="type-btn" id="type-lot-3" onclick="UI.setListingType('lot-3')">3x</button>
+          <button class="type-btn" id="type-lot-4" onclick="UI.setListingType('lot-4')">4x</button>
         </div>
         <div id="lot-label-wrap" style="display:none; margin-top:8px; font-size:12px; color:var(--text-muted);">
           Title preview: <span id="lot-title-preview" style="color:var(--text);">—</span>

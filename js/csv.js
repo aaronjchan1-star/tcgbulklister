@@ -259,9 +259,8 @@ const CSV = (() => {
   function buildStandaloneLotRow(card) {
     const name    = cleanName(card.name);
     const qtyStr  = card.qty > 1 ? `${card.qty}x ` : '';
-    const rarity  = card.rarity || card.variant?.label || 'SR';
     const lang    = card.lang === 'Japanese' ? ' Japanese' : '';
-    const raw     = `${qtyStr}${card.number} ${name || card.number} ${rarity}${lang} One Piece TCG ${card.cond}`;
+    const raw     = `${qtyStr}${card.number} ${name || card.number}${lang} One Piece TCG ${card.cond}`;
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
     const imgUrl  = getCardImageUrl(card);
     const post    = card.post || 0;
@@ -277,7 +276,7 @@ const CSV = (() => {
       'GTC',
       [
         `${name || card.number} (${card.number})`,
-        `One Piece TCG — ${rarity}`,
+        `One Piece TCG`,
         `Language: ${card.lang}`,
         `Condition: ${card.cond}`,
         `Quantity: ${card.qty}`,
