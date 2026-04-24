@@ -4,14 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TCG eBay AU Bulk Lister</title>
+    <script>
+    // Auth gate — redirect to login if no valid session
+    (function() {
+      const raw = localStorage.getItem('tcg_auth_session');
+      if (!raw) { window.location.replace('auth.html'); return; }
+      try {
+        const s = JSON.parse(raw);
+        if (!s.expires || s.expires < Date.now()) {
+          localStorage.removeItem('tcg_auth_session');
+          window.location.replace('auth.html');
+        }
+      } catch(e) { window.location.replace('auth.html'); }
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 <div class="container">
 
-  <div class="header">
-    <h1>TCG eBay AU Bulk Lister</h1>
-    <p>One Piece &amp; Pokémon — add cards, open eBay sold searches, export your eBay CSV.</p>
+  <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between;">
+    <div>
+      <h1>TCG eBay AU Bulk Lister</h1>
+      <p>One Piece &amp; Pokémon — add cards, open eBay sold searches, export your eBay CSV.</p>
+    </div>
+    <button onclick="logout()" style="font-size:12px; padding:6px 12px; border-radius:7px; background:none; border:1px solid #2e2e2e; color:#666; cursor:pointer; font-family:inherit; white-space:nowrap; margin-top:4px;">Sign out</button>
   </div>
 
   <input type="hidden" id="api-key-input" />
@@ -205,5 +222,11 @@
 <script src="js/csv.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/claude.js"></script>
+<script>
+function logout() {
+  localStorage.removeItem('tcg_auth_session');
+  window.location.replace('auth.html');
+}
+</script>
 </body>
 </html>
