@@ -77,13 +77,19 @@ const CSV = (() => {
   }
 
   /* ─── Variation name (shown in dropdown) ─── */
+  function cleanName(name) {
+    if (!name) return '';
+    // Strip anything in parentheses and trailing whitespace e.g. "Nami (OP14" → "Nami"
+    return name.replace(/\s*\(.*$/, '').trim();
+  }
+
   function variationName(card) {
-    const hasName  = card.name && card.name !== card.number && card.name.trim() !== '';
-    const namePart = hasName ? ` ${card.name}` : '';
-    // Only add variant label for special variants (SEC Gold etc), skip SR — it's implied
+    const name     = cleanName(card.name);
+    const hasName  = name && name !== card.number;
+    const namePart = hasName ? ` ${name}` : '';
+    // Only add variant label for special variants (SEC Gold etc), not standard SR
     const variant  = card.variant?.label && card.variant.label !== 'Standard' && card.variant.label !== 'SR'
       ? ` ${card.variant.label}` : '';
-    // Drop the set code from the end — just "EB04-013 Carrot" not "EB04-013 Carrot (EB04 SR"
     return `${card.number}${namePart}${variant}`.substring(0, 65);
   }
 
@@ -107,9 +113,10 @@ const CSV = (() => {
     });
 
     const list = sorted.map(c => {
-      const hasName = c.name && c.name !== c.number;
+      const name    = cleanName(c.name);
+      const hasName = name && name !== c.number;
       const variant = c.variant?.label && c.variant.label !== 'Standard' ? ` (${c.variant.label})` : '';
-      return `• ${c.number}${hasName ? ' ' + c.name : ''}${variant} — $${c.price.toFixed(2)} AUD`;
+      return `• ${c.number}${hasName ? ' ' + name : ''}${variant} — $${c.price.toFixed(2)} AUD`;
     }).join('\n');
 
     const header = game === 'onePiece'
