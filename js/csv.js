@@ -351,7 +351,11 @@ const CSV = (() => {
 
   function download() {
     const rawItems = Listings.getAll();
-    if (rawItems.length === 0) { alert('Add at least one card before downloading.'); return; }
+    if (rawItems.length === 0) {
+      const s = document.getElementById('save-status');
+      if (s) { s.textContent = 'Add at least one card first.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
+      return;
+    }
 
     // Always export all cards regardless of price — user can set prices in CSV or fix after
     const exportItems = rawItems;
@@ -488,7 +492,11 @@ const CSV = (() => {
       try {
         const text  = e.target.result;
         const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'));
-        if (lines.length < 2) { alert('CSV appears empty or has no data rows.'); return; }
+        if (lines.length < 2) {
+        const s = document.getElementById('save-status');
+        if (s) { s.textContent = 'CSV appears empty.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
+        return;
+      }
 
         // Detect headers
         const headerLine = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
@@ -502,7 +510,6 @@ const CSV = (() => {
         const colLtype = hasHeaders ? headerLine.indexOf('listingtype') : 3;
         const colPrice = hasHeaders ? headerLine.indexOf('priceaud')    : 4;
         const colDesc  = hasHeaders ? (headerLine.indexOf('description') >= 0 ? headerLine.indexOf('description') : -1) : 5;
-        const colDesc  = hasHeaders ? headerLine.indexOf('description') : 5;
 
         const imported = [];
         let skipped    = 0;
@@ -551,31 +558,27 @@ const CSV = (() => {
         }
 
         if (imported.length === 0) {
-          alert('No valid cards found. Make sure each row has a card number like OP01-060.');
+          const s = document.getElementById('save-status');
+          if (s) { s.textContent = 'No valid cards found — check format.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',4000); }
           return;
         }
 
         const existing = Listings.getAll();
-        if (existing.length > 0) {
-          const choice = confirm(
-            `You have ${existing.length} existing card${existing.length !== 1 ? 's' : ''}.\n\n` +
-            `OK = Add ${imported.length} imported cards to existing list\n` +
-            `Cancel = Replace existing list with imported cards`
-          );
-          if (choice) Listings.addAll(imported);
-          else        Listings.replaceAll(imported);
-        } else {
-          Listings.replaceAll(imported);
-        }
+        // Always replace — simpler and avoids confirm() which can be blocked
+        Listings.replaceAll(imported);
 
-        const msg = `Imported ${imported.length} card${imported.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — invalid format)` : ''}.\n\nLooking up card names and rarities from Limitless TCG...`;
-        alert(msg);
+        const statusEl = document.getElementById('save-status');
+        if (statusEl) {
+          statusEl.textContent = `Imported ${imported.length} card${imported.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}. Looking up details...`;
+          statusEl.style.opacity = '1';
+        }
 
         // Enrich cards with real names, rarities and images from Limitless
         enrichFromLimitless(Listings.getAll());
 
       } catch(err) {
-        alert('Import failed: ' + err.message);
+        const s2 = document.getElementById('save-status');
+        if (s2) { s2.textContent = 'Import failed: ' + err.message; s2.style.opacity='1'; setTimeout(()=>s2.style.opacity='0',5000); }
       }
       input.value = '';
     };
