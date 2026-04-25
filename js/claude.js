@@ -1,23 +1,46 @@
 /**
  * claude.js
- * Calls /api/claude Vercel function which proxies Anthropic API server-side.
+ * Handles pricing via /api/claude — scrapes eBay AU sold listings,
+ * falls back to Claude AI. Supports bulk (all unpriced) or single card.
  */
 
 const ClaudeAI = (() => {
 
   async function fetchPrice(card) {
-    const response = await fetch('/api/claude', {
+    const resp = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ card })
     });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${resp.status}`);
+    }
+    return await resp.json();
+  }
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${response.status}`);
+  // Price a single card by index — called when user clicks the price field's fetch btn
+  async function priceOne(index) {
+    const items = Listings.getItems();
+    const card  = items[index];
+    if (!card) return;
+
+    const statusEl = document.getElementById('save-status');
+    if (statusEl) { statusEl.textContent = `Researching ${card.name || card.number}...`; statusEl.style.opacity = '1'; }
+
+    try {
+      const result = await fetchPrice(card);
+      const price  = result.price || result.mid;
+      if (price && price >= 0.50) {
+        Listings.updatePrice(index, price, result);
+      }
+    } catch(e) {
+      console.warn('priceOne failed:', e.message);
     }
 
-    return await response.json();
+    if (statusEl) {
+      setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
+    }
   }
 
   async function bulkPrice() {
@@ -42,35 +65,33 @@ const ClaudeAI = (() => {
       const { card, index } = unpriced[i];
       const pct = Math.round((i / unpriced.length) * 100);
 
-      statusEl.textContent = `Researching ${i + 1} of ${unpriced.length}: ${card.name || card.number}...`;
+      statusEl.textContent = `Researching ${i + 1}/${unpriced.length}: ${card.name || card.number} (${card.listingType || 'set'})...`;
       if (progress) progress.style.width = `${pct}%`;
 
       try {
         const result = await fetchPrice(card);
-        // Enforce minimum $2.00 — anything lower means Claude has no data
-        const mid = result.mid && result.mid >= 2 ? result.mid : null;
-        if (mid) {
-          Listings.updatePrice(index, mid, result);
+        const price  = result.price || result.mid;
+        if (price && price >= 0.50) {
+          Listings.updatePrice(index, price, result);
           success++;
           if (result.confidence === 'low') lowConf++;
         } else {
           failed++;
         }
       } catch(e) {
-        console.warn(`Failed for ${card.number || card.name}:`, e.message);
+        console.warn(`Failed ${card.number}:`, e.message);
         failed++;
       }
 
-      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 350));
+      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 500));
     }
 
     if (progress) progress.style.width = '100%';
+
     const ebayCount  = Listings.getItems().filter(c => c.priceSource === 'ebay-au').length;
     const claudeCount = Listings.getItems().filter(c => c.priceSource === 'claude').length;
-    const srcNote = ebayCount > 0
-      ? ` <span style="color:var(--green);">${ebayCount} from eBay AU sold listings${claudeCount > 0 ? `, ${claudeCount} from Claude AI estimate` : ''}</span>`
-      : '';
-    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed.${srcNote}${lowConf > 0 ? ` <span style="color:var(--amber);">${lowConf} low-confidence — verify on eBay.</span>` : ''}`;
+    const srcNote    = `<span style="color:var(--green);">${ebayCount} from eBay AU${claudeCount > 0 ? `, ${claudeCount} from Claude AI` : ''}</span>`;
+    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed. ${srcNote}${lowConf > 0 ? ` <span style="color:var(--amber);">${lowConf} low confidence</span>` : ''}`;
     btn.disabled = false;
     Listings.render();
 
@@ -78,8 +99,8 @@ const ClaudeAI = (() => {
       statusEl.style.display = 'none';
       document.getElementById('claude-progress-wrap').style.display = 'none';
       if (progress) progress.style.width = '0%';
-    }, 10000);
+    }, 12000);
   }
 
-  return { bulkPrice };
+  return { bulkPrice, priceOne };
 })();

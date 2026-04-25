@@ -271,14 +271,27 @@ const Listings = (() => {
     return item.game === 'pokemon' ? (item.printedNumber || item.number) : item.number;
   }
 
+  function buildEbaySearchUrl(item) {
+    const name     = cleanName(item.name) || item.number;
+    const isPlayset = item.listingType === 'playset';
+    const isLot     = item.listingType === 'lot' && item.qty > 1;
+    let q = `${item.number} ${name} One Piece`;
+    if (item.lang === 'Japanese') q += ' Japanese';
+    if (isPlayset) q += ' playset';
+    else if (isLot) q += ` ${item.qty}x`;
+    q += ' -PSA -BGS -CGC -graded -slab';
+    const p = new URLSearchParams({ _nkw: q, LH_Sold: '1', LH_Complete: '1', LH_PrefLoc: '1', _sop: '13' });
+    return `https://www.ebay.com.au/sch/i.html?${p.toString()}`;
+  }
+
   function priceCell(item, index) {
-    const val      = item.price && item.price > 0 ? item.price.toFixed(2) : '';
+    const val       = item.price && item.price > 0 ? item.price.toFixed(2) : '';
     const confColor = item.priceConf === 'high' ? 'var(--green)' : item.priceConf === 'low' ? 'var(--amber)' : 'var(--text)';
     const confDot   = item.priceSource
       ? `<span title="${item.priceConf || ''} confidence${item.priceNotes ? ': ' + item.priceNotes : ''}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${confColor};margin-left:4px;vertical-align:middle;cursor:help;"></span>`
       : '';
-    const ebayUrl  = API.getEbayUrl(item);
-    return `<div style="display:flex;align-items:center;gap:4px;">
+    const ebayUrl = buildEbaySearchUrl(item);
+    return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
       <input
         type="number"
         class="price-inline ${!val ? 'price-unset' : ''}"
@@ -288,8 +301,10 @@ const Listings = (() => {
         min="0"
         onchange="Listings.updatePrice(${index}, parseFloat(this.value) || 0)"
         onclick="this.select()"
-        title="Type price or leave blank for Claude auto-price"
-      />${confDot}<a href="${ebayUrl}" target="_blank" class="price-ebay-link" title="Check eBay">↗</a>
+        title="Type price manually"
+        style="width:70px;"
+      />${confDot}
+      <a href="${ebayUrl}" target="_blank" class="price-ebay-link" title="Search eBay AU sold listings" style="font-size:11px;white-space:nowrap;">eBay AU ↗</a>
     </div>`;
   }
 
@@ -314,8 +329,9 @@ const Listings = (() => {
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond}</span>
-          <span class="listing-type-label ${l.listingType === 'playset' ? 'type-playset' : ''}">${listingTypeLabel(l)}</span>
+          <span class="listing-type-label ${l.listingType === 'playset' ? 'type-playset' : ''}" style="white-space:normal;text-align:center;font-size:10px;line-height:1.3;">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
+          ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
           <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
         </div>

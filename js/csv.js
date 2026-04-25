@@ -337,22 +337,12 @@ const CSV = (() => {
     const rawItems = Listings.getAll();
     if (rawItems.length === 0) { alert('Add at least one card before downloading.'); return; }
 
-    const pricedItems   = rawItems.filter(c => c.price && c.price >= 1.00);
-    const unpricedCount = rawItems.length - pricedItems.length;
-
-    if (pricedItems.length === 0) {
-      alert('No cards have valid prices set. Use Claude AI Price Research or set prices manually.');
-      return;
-    }
-
-    if (unpricedCount > 0) {
-      const ok = confirm(`${unpricedCount} card${unpricedCount !== 1 ? 's are' : ' is'} unpriced and will be skipped.\n\nDownload CSV for the ${pricedItems.length} priced card${pricedItems.length !== 1 ? 's' : ''}?`);
-      if (!ok) return;
-    }
+    // Always export all cards regardless of price — user can set prices in CSV or fix after
+    const exportItems = rawItems;
 
     // Split into variation listing vs standalone lot listings
-    const variationItems = pricedItems.filter(c => c.listingType !== 'lot');
-    const lotItems       = pricedItems.filter(c => c.listingType === 'lot');
+    const variationItems = exportItems.filter(c => c.listingType !== 'lot' && c.listingType !== 'playset');
+    const lotItems       = exportItems.filter(c => c.listingType === 'lot' || c.listingType === 'playset');
 
     const allRows = [HEADERS.join(',')];
 
@@ -569,48 +559,57 @@ const CSV = (() => {
   }
 
   /* ─── Bulk enrich imported cards with Limitless data ─── */
-  async function enrichFromLimitless(items) {
+  async function enrichFromLimitless(importedItems) {
     const statusEl = document.getElementById('save-status');
     let enriched = 0;
+    // Work directly on the live items array via Listings methods
+    const allItems = Listings.getItems();
+    // Find the newly imported items (they'll be at the end with name === number)
+    const startIdx = allItems.length - importedItems.length;
 
-    for (let i = 0; i < items.length; i++) {
-      const card = items[i];
-      if (card.game !== 'onePiece') continue;
+    for (let i = 0; i < importedItems.length; i++) {
+      const card = allItems[startIdx + i];
+      if (!card || card.game !== 'onePiece') continue;
 
-      try {
-        const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
-        // Fetch full card details (name, rarity, set, type, power, effects)
-        const res = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
-          signal: AbortSignal.timeout(8000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.name)    card.name         = data.name;
-          if (data.rarity)  card.variant       = { suffix: '', label: data.rarity };
-          if (data.setName) card.limitlessSetName = data.setName;
-          if (data.imageUrl) card.imageUrl     = data.imageUrl.replace('_EN.webp', `_${langParam}.webp`);
-          // Store all card details for rich descriptions
-          card.cardDetails = data;
-          enriched++;
-        }
-      } catch(e) { /* skip failed lookups */ }
-
-      // Update status
       if (statusEl) {
-        statusEl.textContent = `Looking up ${i + 1}/${items.length}: ${card.number}...`;
+        statusEl.textContent = `Looking up ${i + 1}/${importedItems.length}: ${card.number}...`;
         statusEl.style.opacity = '1';
       }
 
-      // Small delay to avoid hammering the API
-      if (i < items.length - 1) await new Promise(r => setTimeout(r, 200));
+      try {
+        const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
+        const res = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
+          signal: AbortSignal.timeout(10000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.name) {
+            // Clean set code suffixes like "(OP12" from names
+            card.name = data.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+          }
+          if (data.rarity)  card.variant         = { suffix: '', label: data.rarity };
+          if (data.setName) card.limitlessSetName = data.setName;
+          if (data.imageUrl) {
+            card.imageUrl = data.imageUrl.includes('_EN.webp')
+              ? data.imageUrl.replace('_EN.webp', `_${langParam}.webp`)
+              : data.imageUrl;
+          }
+          card.cardDetails = data;
+          enriched++;
+        }
+      } catch(e) { console.log('Enrichment failed:', card.number, e.message); }
+
+      // Render every 5 cards so user sees progress
+      if (i % 5 === 0) Listings.render();
+      await new Promise(r => setTimeout(r, 300));
     }
 
     Listings.save();
     Listings.render();
 
     if (statusEl) {
-      statusEl.textContent = `Enriched ${enriched} cards from Limitless TCG`;
-      setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
+      statusEl.textContent = `✓ ${enriched} cards updated from Limitless TCG`;
+      setTimeout(() => { statusEl.style.opacity = '0'; }, 4000);
     }
   }
 
