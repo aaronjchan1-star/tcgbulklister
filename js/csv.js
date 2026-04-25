@@ -62,7 +62,7 @@ const CSV = (() => {
 
   function getSetName(card) {
     if (card.game === 'onePiece') {
-      const n = { OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',
+      const n = { EB01:'Extra Booster 1',EB02:'Extra Booster 2',EB03:'Extra Booster 3',EB04:'Adventure on Kami\'s Island',OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',
         OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',
         OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',
         OP11:'Memoir of Upheaval',OP12:'The Grandline Chronicles',OP13:'Hero of Justice',
@@ -258,11 +258,22 @@ const CSV = (() => {
   /* ─── Download ─── */
   function buildStandaloneLotRow(card) {
     const name    = cleanName(card.name);
-    const isPlayset = card.listingType === 'playset' || card.qty === 4;
-    const qtyStr    = card.qty > 1 ? `${card.qty}x ` : '';
+    const setName   = getSetName(card);
+    const rarity    = card.variant?.label && card.variant.label !== 'Standard' ? card.variant.label : '';
+    const isPlayset = card.listingType === 'playset';
     const lang      = card.lang === 'Japanese' ? ' Japanese' : '';
-    const setLabel  = isPlayset && card.qty === 4 ? ' Playset' : '';
-    const raw       = `${qtyStr}${card.number} ${name || card.number}${setLabel}${lang} One Piece TCG ${card.cond}`;
+    let raw;
+
+    if (isPlayset) {
+      // Playset: "Jewelry Bonney EB04-002 Rare Adventure on Kami's Island Playset"
+      raw = `${name} ${card.number}${rarity ? ' ' + rarity : ''}${lang} ${setName} Playset`;
+    } else if (card.qty > 1) {
+      // 2x/3x/4x: "2x Jewelry Bonney EB04-002 Adventure on Kami's Island"
+      raw = `${card.qty}x ${name} ${card.number}${lang} ${setName}`;
+    } else {
+      // 1x: "Jewelry Bonney EB04-002 Adventure on Kami's Island"
+      raw = `${name} ${card.number}${lang} ${setName}`;
+    }
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
     const imgUrl  = getCardImageUrl(card);
     const post    = card.post || 0;
@@ -437,15 +448,18 @@ const CSV = (() => {
           const isPlayset    = ltypeRaw === 'playset';
           const isLot        = ltypeRaw === 'lot' || isPlayset;
           const listingType  = isLot ? 'lot' : 'variation';
-          // playset auto-overrides qty to 4
+          // For playset: qty in CSV = number of playset listings
+          // Each playset listing = 4 cards
+          // qty=1 → one listing of 4; qty=2 → two listings of 4 each
+          const numPlaysets  = isPlayset ? Math.max(1, qtyRaw) : 1;
           const finalQty     = isPlayset ? 4 : qtyRaw;
 
           if (!number || !number.includes('-')) { skipped++; continue; }
 
-          imported.push({
+          const cardBase = {
             game:        'onePiece',
             number,
-            name:        number,   // placeholder — will be enriched by card name API
+            name:        number,   // placeholder — enriched by Limitless after import
             lang,
             cond:        'Near Mint',
             qty:         finalQty,
@@ -454,7 +468,13 @@ const CSV = (() => {
             listingType,
             variant:     { suffix: '', label: 'SR' },
             imageUrl:    null
-          });
+          };
+
+          // For playsets, create one listing entry per playset
+          const copies = isPlayset ? numPlaysets : 1;
+          for (let p = 0; p < copies; p++) {
+            imported.push({ ...cardBase });
+          }
         }
 
         if (imported.length === 0) {
