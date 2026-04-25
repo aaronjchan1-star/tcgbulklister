@@ -1,4 +1,4 @@
-/**
+/** v2.1
  * listings.js
  * Manages listings — add, remove, render, save/load via localStorage.
  */
@@ -260,7 +260,6 @@ const Listings = (() => {
   }
 
   function listingTypeLabel(item) {
-    // Check both listingType field and variant label for playset
     if (item.listingType === 'playset' || item.variant?.label === 'Playset') return 'Playset (4x)';
     if (item.listingType === 'lot') {
       const q = item.qty || 1;
@@ -270,6 +269,12 @@ const Listings = (() => {
       return `${q}x`;
     }
     return 'Set listing';
+  }
+
+  function listingTypeCss(item) {
+    if (item.listingType === 'playset') return 'type-playset';
+    if (item.listingType === 'lot') return 'type-lot';
+    return 'type-set';
   }
 
   function displayNumber(item) {
@@ -333,8 +338,8 @@ const Listings = (() => {
           <span class="mono">${displayNumber(l)}</span>
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
-          <span class="muted">${l.cond}</span>
-          <span class="listing-type-label ${l.listingType === 'playset' ? 'type-playset' : ''}" style="white-space:normal;text-align:center;font-size:10px;line-height:1.3;">${listingTypeLabel(l)}</span>
+          <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Lightly Played' ? 'LP' : l.cond === 'Moderately Played' ? 'MP' : l.cond}</span>
+          <span class="listing-type-label ${listingTypeCss(l)}" style="white-space:normal;text-align:center;font-size:10px;line-height:1.3;">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
           ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
