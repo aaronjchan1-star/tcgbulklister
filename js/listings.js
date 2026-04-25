@@ -245,12 +245,22 @@ const Listings = (() => {
   };
 
 
+  // Words that indicate bad scrape data — reject if found in set name
+  const BAD_SET_WORDS = ['deck', 'latest', 'card', 'search', 'limitless', 'result', 'filter'];
+
+  function isValidSetName(name) {
+    if (!name || name.length < 3 || name.length > 60) return false;
+    const lower = name.toLowerCase();
+    return !BAD_SET_WORDS.some(w => lower.includes(w));
+  }
+
   function subLabel(item) {
     if (item.game === 'pokemon') return item.setName || item.setId;
-    // Prefer Limitless set name (accurate for EB04 splits etc)
     const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
-    const setName = item.limitlessSetName || SET_NAMES[setCode] || setCode;
-    const lang    = item.lang === 'Japanese' ? 'JP · ' : '';
+    // Only use Limitless set name if it passes validation
+    const limitless = isValidSetName(item.limitlessSetName) ? item.limitlessSetName : null;
+    const setName   = limitless || SET_NAMES[setCode] || setCode;
+    const lang      = item.lang === 'Japanese' ? 'JP · ' : '';
     return `${lang}${setName}`;
   }
 
@@ -339,7 +349,7 @@ const Listings = (() => {
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Lightly Played' ? 'LP' : l.cond === 'Moderately Played' ? 'MP' : l.cond}</span>
-          <span class="listing-type-label ${listingTypeCss(l)}" style="white-space:normal;text-align:center;font-size:10px;line-height:1.3;">${listingTypeLabel(l)}</span>
+          <span class="listing-type-label ${listingTypeCss(l)}">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
           ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
