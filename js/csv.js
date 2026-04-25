@@ -605,29 +605,58 @@ const CSV = (() => {
 
       try {
         const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
-        const res = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
-          signal: AbortSignal.timeout(10000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.name) {
-            // Clean set code suffixes like "(OP12" from names
-            card.name = data.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+
+        // Try carddetails first for full info
+        let name = null, rarity = null, setName = null, imageUrl = null, cardDetails = null;
+
+        try {
+          const r1 = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
+            signal: AbortSignal.timeout(10000)
+          });
+          if (r1.ok) {
+            const d = await r1.json();
+            name       = d.name;
+            rarity     = d.rarity;
+            setName    = d.setName;
+            imageUrl   = d.imageUrl;
+            cardDetails = d;
           }
-          if (data.rarity)  card.variant         = { suffix: '', label: data.rarity };
-          if (data.setName) card.limitlessSetName = data.setName;
-          if (data.imageUrl) {
-            card.imageUrl = data.imageUrl.includes('_EN.webp')
-              ? data.imageUrl.replace('_EN.webp', `_${langParam}.webp`)
-              : data.imageUrl;
-          }
-          card.cardDetails = data;
-          enriched++;
+        } catch(e1) { /* fall through */ }
+
+        // Fallback to cardname API if name not found
+        if (!name) {
+          try {
+            const r2 = await fetch(`/api/cardname?number=${encodeURIComponent(card.number)}`, {
+              signal: AbortSignal.timeout(8000)
+            });
+            if (r2.ok) {
+              const d2 = await r2.json();
+              name    = name    || d2.name;
+              rarity  = rarity  || d2.rarity;
+              setName = setName || d2.setName;
+              imageUrl = imageUrl || d2.imageUrl;
+            }
+          } catch(e2) { /* give up */ }
         }
+
+        // Apply what we found
+        if (name) card.name = name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+        if (rarity)  card.variant         = { suffix: '', label: rarity };
+        if (setName && !['deck','latest','card','limitless'].some(w => setName.toLowerCase().includes(w))) {
+          card.limitlessSetName = setName;
+        }
+        if (imageUrl) {
+          card.imageUrl = imageUrl.includes('_EN.webp')
+            ? imageUrl.replace('_EN.webp', `_${langParam}.webp`)
+            : imageUrl;
+        }
+        if (cardDetails) card.cardDetails = cardDetails;
+        if (name || rarity) enriched++;
+
       } catch(e) { console.log('Enrichment failed:', card.number, e.message); }
 
-      // Render every 5 cards so user sees progress
-      if (i % 5 === 0) Listings.render();
+      // Render after every card so user sees names populating live
+      Listings.render();
       await new Promise(r => setTimeout(r, 300));
     }
 
