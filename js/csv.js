@@ -258,9 +258,11 @@ const CSV = (() => {
   /* ─── Download ─── */
   function buildStandaloneLotRow(card) {
     const name    = cleanName(card.name);
-    const qtyStr  = card.qty > 1 ? `${card.qty}x ` : '';
-    const lang    = card.lang === 'Japanese' ? ' Japanese' : '';
-    const raw     = `${qtyStr}${card.number} ${name || card.number}${lang} One Piece TCG ${card.cond}`;
+    const isPlayset = card.listingType === 'playset' || card.qty === 4;
+    const qtyStr    = card.qty > 1 ? `${card.qty}x ` : '';
+    const lang      = card.lang === 'Japanese' ? ' Japanese' : '';
+    const setLabel  = isPlayset && card.qty === 4 ? ' Playset' : '';
+    const raw       = `${qtyStr}${card.number} ${name || card.number}${setLabel}${lang} One Piece TCG ${card.cond}`;
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
     const imgUrl  = getCardImageUrl(card);
     const post    = card.post || 0;
@@ -431,8 +433,12 @@ const CSV = (() => {
           const qtyRaw   = parseInt(vals[colQty] || '1') || 1;
           const lang     = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
           const ltypeRaw = colLtype >= 0 ? (vals[colLtype] || '').trim().toLowerCase() : '';
-          // Listing type: explicit 'lot' column OR default to 'variation' (set listing)
-          const listingType = ltypeRaw === 'lot' ? 'lot' : 'variation';
+          // playset = standalone lot of 4x copies
+          const isPlayset    = ltypeRaw === 'playset';
+          const isLot        = ltypeRaw === 'lot' || isPlayset;
+          const listingType  = isLot ? 'lot' : 'variation';
+          // playset auto-overrides qty to 4
+          const finalQty     = isPlayset ? 4 : qtyRaw;
 
           if (!number || !number.includes('-')) { skipped++; continue; }
 
@@ -442,7 +448,7 @@ const CSV = (() => {
             name:        number,   // placeholder — will be enriched by card name API
             lang,
             cond:        'Near Mint',
-            qty:         qtyRaw,
+            qty:         finalQty,
             price:       0,        // unpriced — Claude will fetch
             post:        0,
             listingType,

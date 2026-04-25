@@ -353,14 +353,16 @@ const UI = (() => {
 
   function setListingType(type) {
     currentListingType = type;
-    ['variation','lot-1','lot-2','lot-3','lot-4'].forEach(t => {
+    ['variation','lot-1','lot-2','lot-3','lot-4','playset'].forEach(t => {
       const el = document.getElementById(`type-${t}`);
       if (el) el.classList.toggle('active', type === t);
     });
-    const isLot = type.startsWith('lot-');
+    const isLot = type.startsWith('lot-') || type === 'playset';
     document.getElementById('lot-label-wrap').style.display = isLot ? 'block' : 'none';
     // Auto-set qty to match lot size
-    if (isLot) {
+    if (type === 'playset') {
+      document.getElementById('f-op-qty').value = 4;
+    } else if (isLot) {
       const qty = parseInt(type.split('-')[1]);
       document.getElementById('f-op-qty').value = qty;
     }
@@ -368,6 +370,7 @@ const UI = (() => {
   }
 
   function getLotQty() {
+    if (currentListingType === 'playset') return 4;
     if (!currentListingType.startsWith('lot-')) return 1;
     return parseInt(currentListingType.split('-')[1]) || 1;
   }
@@ -381,8 +384,10 @@ const UI = (() => {
     const qty      = getLotQty();
     const cleanedName = name.replace(/\s*\(.*$/, '').trim();
     const displayName = (cleanedName || number) || '...';
-    const qtyPart = qty > 1 ? `${qty}x ` : '';
-    preview.textContent = `${qtyPart}${number} ${displayName} One Piece TCG`;
+    const isPlayset = currentListingType === 'playset';
+    const qtyPart   = qty > 1 ? `${qty}x ` : '';
+    const suffix    = isPlayset ? ' Playset (x4)' : '';
+    preview.textContent = `${qtyPart}${number} ${displayName} One Piece TCG${suffix}`;
   }
 
   function getListingType() { return currentListingType; }
