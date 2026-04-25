@@ -469,8 +469,11 @@ const CSV = (() => {
           Listings.replaceAll(imported);
         }
 
-        const msg = `Imported ${imported.length} card${imported.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — invalid format)` : ''}.\n\nUse "Research prices for all unpriced cards" to fetch prices via Claude.`;
+        const msg = `Imported ${imported.length} card${imported.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — invalid format)` : ''}.\n\nLooking up card names and rarities from Limitless TCG...`;
         alert(msg);
+
+        // Enrich cards with real names, rarities and images from Limitless
+        enrichFromLimitless(Listings.getAll());
 
       } catch(err) {
         alert('Import failed: ' + err.message);
@@ -478,6 +481,48 @@ const CSV = (() => {
       input.value = '';
     };
     reader.readAsText(file);
+  }
+
+  /* ─── Bulk enrich imported cards with Limitless data ─── */
+  async function enrichFromLimitless(items) {
+    const statusEl = document.getElementById('save-status');
+    let enriched = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const card = items[i];
+      if (card.game !== 'onePiece') continue;
+
+      try {
+        const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
+        const res = await fetch(`/api/cardname?number=${encodeURIComponent(card.number)}`, {
+          signal: AbortSignal.timeout(6000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.name)     card.name    = data.name;
+          if (data.rarity)   card.variant = { suffix: '', label: data.rarity };
+          if (data.imageUrl) card.imageUrl = data.imageUrl.replace('_EN.webp', `_${langParam}.webp`);
+          enriched++;
+        }
+      } catch(e) { /* skip failed lookups */ }
+
+      // Update status
+      if (statusEl) {
+        statusEl.textContent = `Looking up ${i + 1}/${items.length}: ${card.number}...`;
+        statusEl.style.opacity = '1';
+      }
+
+      // Small delay to avoid hammering the API
+      if (i < items.length - 1) await new Promise(r => setTimeout(r, 200));
+    }
+
+    Listings.save();
+    Listings.render();
+
+    if (statusEl) {
+      statusEl.textContent = `Enriched ${enriched} cards from Limitless TCG`;
+      setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
+    }
   }
 
   function parseCSVLine(line) {

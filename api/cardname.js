@@ -1,7 +1,7 @@
 /**
  * api/cardname.js
- * Fetches One Piece card name from Limitless TCG server-side (avoids CORS).
- * Query params: number=OP01-060
+ * Fetches One Piece card details (name, rarity, image) from Limitless TCG.
+ * Returns: { name, rarity, imageUrl }
  */
 
 export default async function handler(req, res) {
@@ -12,66 +12,90 @@ export default async function handler(req, res) {
   const { number } = req.query;
   if (!number) return res.status(400).json({ error: 'Missing card number' });
 
-  const parts  = number.toUpperCase().split('-');
-  const set    = parts[0];
-  const num    = parts[1];
+  const num = number.toUpperCase();
+  const parts = num.split('-');
+  const set   = parts[0];
+  const cardNum = parts[1];
 
-  if (!set || !num) return res.status(400).json({ error: 'Invalid card number format' });
+  if (!set || !cardNum) return res.status(400).json({ error: 'Invalid format' });
 
-  // Try Limitless TCG API first
+  // Try Limitless TCG card page — scrape name + rarity
   try {
-    const url  = `https://onepiece.limitlesstcg.com/api/search?cards=true&set=${set}&number=${num}`;
+    const url = `https://onepiece.limitlesstcg.com/cards/en/${num}`;
     const res1 = await fetch(url, {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'TCGBulkLister/1.0' }
+      headers: { 'User-Agent': 'TCGBulkLister/1.0', 'Accept': 'text/html' },
+      signal: AbortSignal.timeout(6000)
     });
 
     if (res1.ok) {
-      const data = await res1.json();
-      // Limitless returns array or object with cards
-      const cards = Array.isArray(data) ? data : (data.cards || data.results || []);
-      const card  = cards.find(c =>
-        c.number?.toUpperCase() === num ||
-        c.id?.toUpperCase() === number.toUpperCase()
-      ) || cards[0];
+      const html = await res1.text();
 
-      if (card?.name) {
-        return res.status(200).json({ name: card.name, source: 'limitless' });
+      // Extract card name
+      const nameMatch = html.match(/class="card-text-name"[^>]*>\s*([^<]+)/i)
+        || html.match(/<h1[^>]*>\s*([^<]+)/i)
+        || html.match(/property="og:title"\s+content="([^"]+)"/i);
+
+      // Extract rarity
+      const rarityMatch = html.match(/class="card-text-type[^"]*"[^>]*>[^<]*<\/[^>]+>\s*([^<·]+)·\s*([A-Z]+)/i)
+        || html.match(/·\s*(SR|R|UC|C|SEC|SE|L|SP)\b/i)
+        || html.match(/\b(Secret Rare|Super Rare|Rare|Uncommon|Common|Special)\b/i);
+
+      // Extract image URL
+      const imgMatch = html.match(/class="card-image[^"]*"[^>]*>\s*<img[^>]*src="([^"]+)"/i)
+        || html.match(/property="og:image"\s+content="([^"]+)"/i);
+
+      let name   = nameMatch?.[1]?.replace(/\s*[-|].*$/, '').trim() || null;
+      let rarity = null;
+      let imgUrl = imgMatch?.[1] || null;
+
+      // Parse rarity from matched text
+      if (rarityMatch) {
+        const raw = (rarityMatch[2] || rarityMatch[1] || '').toUpperCase().trim();
+        if (raw.includes('SECRET') || raw === 'SEC') rarity = 'SEC';
+        else if (raw.includes('SUPER') || raw === 'SR') rarity = 'SR';
+        else if (raw === 'R' || raw.includes('RARE')) rarity = 'R';
+        else if (raw === 'UC' || raw.includes('UNCOMMON')) rarity = 'UC';
+        else if (raw === 'C' || raw.includes('COMMON')) rarity = 'C';
+        else if (raw === 'L' || raw.includes('LEADER')) rarity = 'L';
+        else if (raw === 'SP') rarity = 'SP';
+        else rarity = raw;
+      }
+
+      // Build Limitless CDN image URL as fallback
+      if (!imgUrl) {
+        imgUrl = `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${num}_EN.webp`;
+      }
+
+      // Clean name — remove set code suffixes
+      if (name) name = name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+
+      if (name) {
+        return res.status(200).json({ name, rarity: rarity || 'SR', imageUrl: imgUrl });
       }
     }
-  } catch(e) { /* fall through to next source */ }
+  } catch(e) {
+    console.log('Limitless page scrape failed:', e.message);
+  }
 
-  // Try Limitless card page directly and scrape the name
+  // Fallback: TCGdex
   try {
-    const url  = `https://onepiece.limitlesstcg.com/cards/en/${number.toUpperCase()}`;
-    const res2 = await fetch(url, {
-      headers: { 'User-Agent': 'TCGBulkLister/1.0' }
-    });
-
-    if (res2.ok) {
-      const html = await res2.text();
-      // Extract card name from page title or heading
-      const titleMatch = html.match(/<title>([^|<]+)/i);
-      const h1Match    = html.match(/<h1[^>]*>([^<]+)</i);
-      const metaMatch  = html.match(/property="og:title"\s+content="([^"]+)"/i);
-
-      const raw = metaMatch?.[1] || h1Match?.[1] || titleMatch?.[1] || '';
-      // Clean up — remove " - Limitless TCG" suffix etc
-      const name = raw.replace(/\s*[-|].*$/, '').trim();
-      if (name && name.length > 0 && !name.toLowerCase().includes('limitless')) {
-        return res.status(200).json({ name, source: 'limitless-page' });
+    const r = await fetch(`https://api.tcgdex.net/v2/en/cards/${num}`, { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      const data = await r.json();
+      if (data?.name) {
+        return res.status(200).json({
+          name:     data.name,
+          rarity:   data.rarity || 'SR',
+          imageUrl: `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${num}_EN.webp`
+        });
       }
     }
-  } catch(e) { /* fall through */ }
+  } catch(e) {}
 
-  // Try TCGdex as fallback
-  try {
-    const url  = `https://api.tcgdex.net/v2/en/cards/${number.toUpperCase()}`;
-    const res3 = await fetch(url);
-    if (res3.ok) {
-      const data = await res3.json();
-      if (data?.name) return res.status(200).json({ name: data.name, source: 'tcgdex' });
-    }
-  } catch(e) { /* give up */ }
-
-  return res.status(404).json({ error: 'Card name not found' });
+  // Last resort — just return the CDN image URL with no name
+  return res.status(200).json({
+    name:     null,
+    rarity:   null,
+    imageUrl: `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${set}/${num}_EN.webp`
+  });
 }
