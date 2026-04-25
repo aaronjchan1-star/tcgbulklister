@@ -229,12 +229,16 @@ const Listings = (() => {
   }
 
   function listingTypeLabel(item) {
-    if (item.listingType === 'playset') return 'Playset (4x)';
-    const q = item.qty || 1;
-    if (q === 1) return 'Single';
-    if (q === 2) return 'Pair';
-    if (q === 3) return 'Triple';
-    return `${q}x`;
+    // Check both listingType field and variant label for playset
+    if (item.listingType === 'playset' || item.variant?.label === 'Playset') return 'Playset (4x)';
+    if (item.listingType === 'lot') {
+      const q = item.qty || 1;
+      if (q === 1) return 'Single';
+      if (q === 2) return 'Pair';
+      if (q === 3) return 'Triple';
+      return `${q}x`;
+    }
+    return 'Set listing';
   }
 
   function displayNumber(item) {

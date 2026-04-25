@@ -392,6 +392,8 @@ const CSV = (() => {
       ['', '', '', '', '', ''],
       ['', '', '', '', '', 'COLUMNS:'],
       ['', '', '', '', '', '  Number       — Card number e.g. OP01-060, EB04-002'],
+      ['', '', '', '', '', '  Price (AUD)  — Leave blank for Claude AI auto-pricing'],
+      ['', '', '', '', '', '               Enter a price (e.g. 5.00) to set it manually'],
       ['', '', '', '', '', '  Qty          — See Listing Type below for meaning'],
       ['', '', '', '', '', '  Language     — Leave blank for English. Write: Japanese'],
       ['', '', '', '', '', '  Listing Type — set / lot / playset (see below)'],
@@ -467,6 +469,7 @@ const CSV = (() => {
         const colQty   = hasHeaders ? headerLine.indexOf('qty')         : 1;
         const colLang  = hasHeaders ? headerLine.indexOf('language')    : 2;
         const colLtype = hasHeaders ? headerLine.indexOf('listingtype') : 3;
+        const colPrice = hasHeaders ? headerLine.indexOf('priceaud')    : 4;
 
         const imported = [];
         let skipped    = 0;
@@ -480,9 +483,10 @@ const CSV = (() => {
           const lang     = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
           const ltypeRaw = colLtype >= 0 ? (vals[colLtype] || '').trim().toLowerCase() : '';
           // playset = standalone lot of 4x copies
+          const priceRaw   = colPrice >= 0 ? parseFloat(vals[colPrice] || '0') || 0 : 0;
           const isPlayset    = ltypeRaw === 'playset';
-          const isLot        = ltypeRaw === 'lot' || isPlayset;
-          const listingType  = isLot ? 'lot' : 'variation';
+          const isLot        = ltypeRaw === 'lot';
+          const listingType  = isPlayset ? 'playset' : isLot ? 'lot' : 'variation';
           // For playset: qty in CSV = number of playset listings
           // Each playset listing = 4 cards
           // qty=1 → one listing of 4; qty=2 → two listings of 4 each
@@ -498,7 +502,7 @@ const CSV = (() => {
             lang,
             cond:        'Near Mint',
             qty:         finalQty,
-            price:       0,        // unpriced — Claude will fetch
+            price:       priceRaw, // use CSV price if set, else 0 = Claude will fetch
             post:        0,
             listingType,
             variant:     { suffix: '', label: 'SR' },
