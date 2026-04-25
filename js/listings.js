@@ -90,8 +90,10 @@ const Listings = (() => {
         listingType,
         qty: listingType === 'lot' ? lotQty : qty,
         variant: variant ? { suffix: variant.suffix, label: variant.label } : { suffix: '', label: rarity },
-        imageUrl: variant?.url || null
+        imageUrl:         variant?.url || null,
+        limitlessSetName: window._currentOPSetName || null
       };
+      window._currentOPSetName = null;
 
     } else {
       const selected = UI.getSelectedPokemonCard();
@@ -245,8 +247,9 @@ const Listings = (() => {
 
   function subLabel(item) {
     if (item.game === 'pokemon') return item.setName || item.setId;
+    // Prefer Limitless set name (accurate for EB04 splits etc)
     const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
-    const setName = SET_NAMES[setCode] || setCode;
+    const setName = item.limitlessSetName || SET_NAMES[setCode] || setCode;
     const lang    = item.lang === 'Japanese' ? 'JP · ' : '';
     return `${lang}${setName}`;
   }

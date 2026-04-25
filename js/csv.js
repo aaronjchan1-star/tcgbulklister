@@ -248,6 +248,44 @@ const CSV = (() => {
   }
 
   /* ─── Download ─── */
+  function buildLotDesc(card, name, setName) {
+    const d = card.cardDetails; // pre-fetched Limitless details
+    const lines = [];
+
+    // Header
+    lines.push(`${name || card.number} — ${card.number}`);
+    if (setName) lines.push(`One Piece TCG · ${setName}`);
+    else          lines.push('One Piece TCG');
+
+    // Card type row (e.g. "Leader · Red/Yellow · 4 Life")
+    if (d?.typeRow)  lines.push(d.typeRow);
+    // Power row (e.g. "5000 Power · Special")
+    if (d?.powerRow) lines.push(d.powerRow);
+    // Traits (e.g. "Egghead/Bonney Pirates")
+    if (d?.traits)   lines.push(d.traits);
+
+    lines.push('');
+
+    // Effect text
+    if (d?.effects?.length) {
+      d.effects.forEach(e => lines.push(e));
+      lines.push('');
+    }
+
+    // Listing details
+    lines.push(`Condition: ${card.cond}`);
+    lines.push(`Language: ${card.lang}`);
+    lines.push(`Quantity: ${card.qty}`);
+    lines.push('');
+    lines.push('Card is shipped securely in a protective sleeve and rigid toploader.');
+    if (card.qty > 1) lines.push('Combined postage available — request an invoice before paying if purchasing multiple.');
+    lines.push('');
+    lines.push('Australian seller based in Sydney, NSW.');
+    lines.push('Fast dispatch within 3 business days of cleared payment.');
+
+    return lines.join('\n');
+  }
+
   function buildStandaloneLotRow(card) {
     const name    = cleanName(card.name);
     const setName   = getSetName(card);
@@ -279,17 +317,7 @@ const CSV = (() => {
       card.qty,
       'FixedPriceItem',
       'GTC',
-      [
-        `${name || card.number} (${card.number})`,
-        `One Piece TCG`,
-        `Language: ${card.lang}`,
-        `Condition: ${card.cond}`,
-        `Quantity: ${card.qty}`,
-        '',
-        'Card is shipped securely in a protective sleeve and rigid toploader.',
-        'Australian seller based in Sydney, NSW.',
-        'Fast dispatch within 3 business days of cleared payment.'
-      ].join('\n'),
+      buildLotDesc(card, name, setName),
       imgUrl,
       'Flat',
       'AU_Regular',
@@ -551,14 +579,18 @@ const CSV = (() => {
 
       try {
         const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
-        const res = await fetch(`/api/cardname?number=${encodeURIComponent(card.number)}`, {
-          signal: AbortSignal.timeout(6000)
+        // Fetch full card details (name, rarity, set, type, power, effects)
+        const res = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
+          signal: AbortSignal.timeout(8000)
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.name)     card.name    = data.name;
-          if (data.rarity)   card.variant = { suffix: '', label: data.rarity };
-          if (data.imageUrl) card.imageUrl = data.imageUrl.replace('_EN.webp', `_${langParam}.webp`);
+          if (data.name)    card.name         = data.name;
+          if (data.rarity)  card.variant       = { suffix: '', label: data.rarity };
+          if (data.setName) card.limitlessSetName = data.setName;
+          if (data.imageUrl) card.imageUrl     = data.imageUrl.replace('_EN.webp', `_${langParam}.webp`);
+          // Store all card details for rich descriptions
+          card.cardDetails = data;
           enriched++;
         }
       } catch(e) { /* skip failed lookups */ }

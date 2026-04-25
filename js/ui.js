@@ -103,7 +103,10 @@ const UI = (() => {
     fetchOPCardName(number).then(cardName => {
       if (cardName) {
         const nameField = document.getElementById('f-op-name');
-        if (!nameField.value.trim()) nameField.value = cardName;
+        if (!nameField.value.trim()) {
+          nameField.value = cardName.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+        }
+        updateLotPreview();
       }
     });
 
