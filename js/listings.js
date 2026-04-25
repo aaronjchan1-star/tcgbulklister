@@ -254,6 +254,11 @@ const Listings = (() => {
     return `${lang}${setName}`;
   }
 
+  function ebayLinkCell(item) {
+    const url = API.getEbayUrl(item);
+    return `<a href="${url}" target="_blank" class="ebay-search-btn" title="Search eBay AU sold listings">eBay ↗</a>`;
+  }
+
   function listingTypeLabel(item) {
     // Check both listingType field and variant label for playset
     if (item.listingType === 'playset' || item.variant?.label === 'Playset') return 'Playset (4x)';
