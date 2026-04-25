@@ -492,3 +492,40 @@ input:focus, select:focus {
   color: #4ade80;
   border-color: #1e4a1e;
 }
+
+/* ─── Listings table — allow wrapping, fix truncation ─── */
+.listing-row {
+  align-items: start !important;
+  padding: 10px 12px !important;
+}
+
+.listing-row span,
+.listing-name {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Type badge — never truncate */
+.listing-type-label {
+  white-space: nowrap !important;
+  font-size: 11px !important;
+}
+
+/* Price input + eBay link */
+.price-inline.price-unset {
+  border-color: #3a2a00;
+  color: var(--text-muted);
+}
+.price-inline.price-unset::placeholder { color: #555; }
+
+.price-ebay-link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.price-ebay-link:hover { opacity: 1; }

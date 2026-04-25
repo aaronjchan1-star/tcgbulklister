@@ -62,15 +62,7 @@ const CSV = (() => {
 
   function getSetName(card) {
     if (card.game === 'onePiece') {
-      const n = { EB01:'Extra Booster 1',EB02:'Extra Booster 2',EB03:'Extra Booster 3',EB04:'Adventure on Kami\'s Island',OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',
-        OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',
-        OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',
-        OP11:'Memoir of Upheaval',OP12:'The Grandline Chronicles',OP13:'Hero of Justice',
-        OP14:'3D2Y',OP15:'Sealed Memories',ST01:'Straw Hat Crew',ST02:'Worst Generation',
-        ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',
-        ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',
-        ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',
-        ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter' };
+      const n = { EB01:'Memorial Collection',EB02:'Anime 25th Collection',EB03:'Heroines Edition',EB04:"Adventure on Kami's Island",OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',OP11:'A Fist of Divine Speed',OP12:'Legacy of the Master',OP13:'Carrying on his Will',OP14:"The Azure Sea's Seven",OP15:"Adventure on Kami's Island",PRB01:'The Best Vol.1',PRB02:'The Best Vol.2',ST01:'Straw Hat Crew',ST02:'Worst Generation',ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter' };
       return n[card.number.split('-')[0].toUpperCase()] || getSetId(card);
     }
     return card.setName || card.setId;

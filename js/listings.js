@@ -182,10 +182,10 @@ const Listings = (() => {
   }
 
   function clearAll() {
-    if (items.length === 0) return;
-    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}?`)) return;
+    if (items.length === 0) { alert('No listings to clear.'); return; }
+    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     items = [];
-    localStorage.removeItem(STORAGE_KEY);
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
     render();
     showSaveStatus('List cleared');
   }
@@ -202,23 +202,25 @@ const Listings = (() => {
   function gameLabel(item)      { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
   function gameBadgeClass(item) { return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
 
-  const SET_NAMES = {
-    EB01:'Extra Booster 1', EB02:'Extra Booster 2', EB03:'Extra Booster 3',
-    EB04:"Adventure on Kami's Island",
+    const SET_NAMES = {
+    EB01:'Memorial Collection', EB02:'Anime 25th Collection',
+    EB03:'Heroines Edition', EB04:"Adventure on Kami's Island",
     OP01:'Romance Dawn', OP02:'Paramount War', OP03:'Pillars of Strength',
     OP04:'Kingdoms of Intrigue', OP05:'Awakening of the New Era',
     OP06:'Wings of the Captain', OP07:'500 Years in the Future',
     OP08:'Two Legends', OP09:'The Four Emperors', OP10:'Royal Blood',
-    OP11:'Memoir of Upheaval', OP12:'The Grandline Chronicles',
-    OP13:'Hero of Justice', OP14:'3D2Y', OP15:'Sealed Memories',
+    OP11:'A Fist of Divine Speed', OP12:'Legacy of the Master',
+    OP13:'Carrying on his Will', OP14:"The Azure Sea's Seven",
+    OP15:"Adventure on Kami's Island",
+    PRB01:'The Best Vol.1', PRB02:'The Best Vol.2',
     ST01:'Straw Hat Crew', ST02:'Worst Generation', ST03:'The Seven Warlords',
     ST04:'Animal Kingdom Pirates', ST05:'Worst Generation 2',
     ST06:'Absolute Justice', ST07:'Big Mom Pirates', ST08:'Monkey D. Luffy',
     ST09:'Yamato', ST10:'UTA', ST11:'Uta', ST12:'Zoro & Sanji',
     ST13:'The Three Captains', ST14:'3D2Y Luffy', ST15:'Red-Haired Pirates',
-    ST16:'Marine', ST17:'Dark Forces', ST18:'World Government', ST19:'Final Chapter',
-    PRB01:'Premium Booster 1', PRB02:'Premium Booster 2'
+    ST16:'Marine', ST17:'Dark Forces', ST18:'World Government', ST19:'Final Chapter'
   };
+
 
   function subLabel(item) {
     if (item.game === 'pokemon') return item.setName || item.setId;
@@ -246,24 +248,25 @@ const Listings = (() => {
   }
 
   function priceCell(item, index) {
-    if (!item.price || item.price === 0) {
-      const url = API.getEbayUrl(item);
-      return `<a href="${url}" target="_blank" class="price-missing price-lookup" title="Check eBay sold prices">— eBay ↗</a>`;
-    }
+    const val      = item.price && item.price > 0 ? item.price.toFixed(2) : '';
     const confColor = item.priceConf === 'high' ? 'var(--green)' : item.priceConf === 'low' ? 'var(--amber)' : 'var(--text)';
-    const confDot   = item.priceSource === 'claude'
+    const confDot   = item.priceSource
       ? `<span title="${item.priceConf || ''} confidence${item.priceNotes ? ': ' + item.priceNotes : ''}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${confColor};margin-left:4px;vertical-align:middle;cursor:help;"></span>`
       : '';
-    return `<input
-      type="number"
-      class="price-inline"
-      value="${item.price.toFixed(2)}"
-      step="0.50"
-      min="1"
-      onchange="Listings.updatePrice(${index}, parseFloat(this.value) || 0)"
-      onclick="this.select()"
-      title="Click to edit price"
-    />${confDot}`;
+    const ebayUrl  = API.getEbayUrl(item);
+    return `<div style="display:flex;align-items:center;gap:4px;">
+      <input
+        type="number"
+        class="price-inline ${!val ? 'price-unset' : ''}"
+        value="${val}"
+        placeholder="0.00"
+        step="0.50"
+        min="0"
+        onchange="Listings.updatePrice(${index}, parseFloat(this.value) || 0)"
+        onclick="this.select()"
+        title="Type price or leave blank for Claude auto-price"
+      />${confDot}<a href="${ebayUrl}" target="_blank" class="price-ebay-link" title="Check eBay">↗</a>
+    </div>`;
   }
 
   function render() {
