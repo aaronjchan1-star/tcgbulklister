@@ -249,36 +249,52 @@ const CSV = (() => {
 
   /* ─── Download ─── */
   function buildLotDesc(card, name, setName) {
-    const d = card.cardDetails; // pre-fetched Limitless details
+    // Use custom description from import if provided
+    if (card.customDesc && card.customDesc.trim()) return card.customDesc.trim();
+
+    const d = card.cardDetails;
     const lines = [];
 
-    // Header
+    // Line 1: Name — Number
     lines.push(`${name || card.number} — ${card.number}`);
+
+    // Line 2: One Piece TCG · Set Name
     if (setName) lines.push(`One Piece TCG · ${setName}`);
     else          lines.push('One Piece TCG');
 
-    // Card type row (e.g. "Leader · Red/Yellow · 4 Life")
-    if (d?.typeRow)  lines.push(d.typeRow);
-    // Power row (e.g. "5000 Power · Special")
-    if (d?.powerRow) lines.push(d.powerRow);
-    // Traits (e.g. "Egghead/Bonney Pirates")
-    if (d?.traits)   lines.push(d.traits);
+    // Line 3: Type line e.g. "Leader • Red/Yellow • 4 Life"
+    if (d?.typeLine)  lines.push(d.typeLine);
+    // Line 4: Power line e.g. "5000 Power • Special"
+    if (d?.powerLine) lines.push(d.powerLine);
+    // Line 5: Traits e.g. "Egghead/Bonney Pirates"
+    if (d?.traits)    lines.push(d.traits);
 
     lines.push('');
 
     // Effect text
     if (d?.effects?.length) {
-      d.effects.forEach(e => lines.push(e));
-      lines.push('');
+      d.effects.forEach(e => {
+        lines.push(e);
+        lines.push('');
+      });
     }
 
     // Listing details
     lines.push(`Condition: ${card.cond}`);
     lines.push(`Language: ${card.lang}`);
-    lines.push(`Quantity: ${card.qty}`);
+    if (card.listingType === 'playset') {
+      lines.push('Quantity: 4x (Playset)');
+    } else if (card.qty > 1) {
+      lines.push(`Quantity: ${card.qty}x`);
+    } else {
+      lines.push('Quantity: 1');
+    }
+
     lines.push('');
     lines.push('Card is shipped securely in a protective sleeve and rigid toploader.');
-    if (card.qty > 1) lines.push('Combined postage available — request an invoice before paying if purchasing multiple.');
+    if (card.qty > 1 || card.listingType === 'playset') {
+      lines.push('Combined postage available — request an invoice before paying if purchasing multiple.');
+    }
     lines.push('');
     lines.push('Australian seller based in Sydney, NSW.');
     lines.push('Fast dispatch within 3 business days of cleared payment.');
@@ -403,6 +419,11 @@ const CSV = (() => {
       ['', '', '', '', '', 'COLUMNS:'],
       ['', '', '', '', '', '  Number       — Card number e.g. OP01-060, EB04-002'],
       ['', '', '', '', '', '  Price (AUD)  — Leave blank for Claude AI auto-pricing'],
+      ['', '', '', '', '', '  Description  — Leave blank to auto-generate from Limitless TCG'],
+      ['', '', '', '', '', '               Or type a custom description for the eBay listing'],
+      ['', '', '', '', '', '               Enter a price (e.g. 5.00) to set it manually'],
+      ['', '', '', '', '', '  Description  — Leave blank to auto-generate from Limitless TCG'],
+      ['', '', '', '', '', '               Or type a custom description for the eBay listing'],
       ['', '', '', '', '', '               Enter a price (e.g. 5.00) to set it manually'],
       ['', '', '', '', '', '  Qty          — See Listing Type below for meaning'],
       ['', '', '', '', '', '  Language     — Leave blank for English. Write: Japanese'],
@@ -480,6 +501,8 @@ const CSV = (() => {
         const colLang  = hasHeaders ? headerLine.indexOf('language')    : 2;
         const colLtype = hasHeaders ? headerLine.indexOf('listingtype') : 3;
         const colPrice = hasHeaders ? headerLine.indexOf('priceaud')    : 4;
+        const colDesc  = hasHeaders ? (headerLine.indexOf('description') >= 0 ? headerLine.indexOf('description') : -1) : 5;
+        const colDesc  = hasHeaders ? headerLine.indexOf('description') : 5;
 
         const imported = [];
         let skipped    = 0;
@@ -516,7 +539,8 @@ const CSV = (() => {
             post:        0,
             listingType,
             variant:     { suffix: '', label: 'SR' },
-            imageUrl:    null
+            imageUrl:    null,
+            customDesc:  colDesc >= 0 && vals[colDesc] && vals[colDesc].trim() ? vals[colDesc].trim() : null
           };
 
           // For playsets, create one listing entry per playset
