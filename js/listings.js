@@ -182,12 +182,33 @@ const Listings = (() => {
   }
 
   function clearAll() {
-    if (items.length === 0) { alert('No listings to clear.'); return; }
-    if (!confirm(`Clear all ${items.length} listing${items.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (items.length === 0) { showSaveStatus('Nothing to clear'); return; }
+    // Use custom confirm UI instead of browser confirm() which can be blocked
+    const bar = document.getElementById('clear-confirm-bar');
+    if (bar) {
+      bar.style.display = bar.style.display === 'none' || !bar.style.display ? 'flex' : 'none';
+      document.getElementById('clear-confirm-count').textContent = items.length;
+      return;
+    }
+    // Fallback if bar doesn't exist
     items = [];
     try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
     render();
     showSaveStatus('List cleared');
+  }
+
+  function clearAllConfirmed() {
+    const bar = document.getElementById('clear-confirm-bar');
+    if (bar) bar.style.display = 'none';
+    items = [];
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    render();
+    showSaveStatus('List cleared');
+  }
+
+  function clearAllCancelled() {
+    const bar = document.getElementById('clear-confirm-bar');
+    if (bar) bar.style.display = 'none';
   }
 
   function showSaveStatus(msg) {
@@ -329,5 +350,5 @@ const Listings = (() => {
     render();
   }
 
-  return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, replaceAll, addAll, imageUrl, imageUrlFromFields };
+  return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, imageUrl, imageUrlFromFields };
 })();
