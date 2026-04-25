@@ -202,10 +202,39 @@ const Listings = (() => {
   function gameLabel(item)      { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
   function gameBadgeClass(item) { return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
 
+  const SET_NAMES = {
+    EB01:'Extra Booster 1', EB02:'Extra Booster 2', EB03:'Extra Booster 3',
+    EB04:"Adventure on Kami's Island",
+    OP01:'Romance Dawn', OP02:'Paramount War', OP03:'Pillars of Strength',
+    OP04:'Kingdoms of Intrigue', OP05:'Awakening of the New Era',
+    OP06:'Wings of the Captain', OP07:'500 Years in the Future',
+    OP08:'Two Legends', OP09:'The Four Emperors', OP10:'Royal Blood',
+    OP11:'Memoir of Upheaval', OP12:'The Grandline Chronicles',
+    OP13:'Hero of Justice', OP14:'3D2Y', OP15:'Sealed Memories',
+    ST01:'Straw Hat Crew', ST02:'Worst Generation', ST03:'The Seven Warlords',
+    ST04:'Animal Kingdom Pirates', ST05:'Worst Generation 2',
+    ST06:'Absolute Justice', ST07:'Big Mom Pirates', ST08:'Monkey D. Luffy',
+    ST09:'Yamato', ST10:'UTA', ST11:'Uta', ST12:'Zoro & Sanji',
+    ST13:'The Three Captains', ST14:'3D2Y Luffy', ST15:'Red-Haired Pirates',
+    ST16:'Marine', ST17:'Dark Forces', ST18:'World Government', ST19:'Final Chapter',
+    PRB01:'Premium Booster 1', PRB02:'Premium Booster 2'
+  };
+
   function subLabel(item) {
     if (item.game === 'pokemon') return item.setName || item.setId;
-    const variantLabel = item.variant?.label && item.variant.label !== 'Standard' ? ` ${item.variant.label}` : '';
-    return (item.lang === 'Japanese' ? 'JP' : 'EN') + variantLabel;
+    const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
+    const setName = SET_NAMES[setCode] || setCode;
+    const lang    = item.lang === 'Japanese' ? 'JP · ' : '';
+    return `${lang}${setName}`;
+  }
+
+  function listingTypeLabel(item) {
+    if (item.listingType === 'playset') return 'Playset (4x)';
+    const q = item.qty || 1;
+    if (q === 1) return 'Single';
+    if (q === 2) return 'Pair';
+    if (q === 3) return 'Triple';
+    return `${q}x`;
   }
 
   function displayNumber(item) {
@@ -254,7 +283,7 @@ const Listings = (() => {
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond}</span>
-          <span class="muted">${l.qty}</span>
+          <span class="listing-type-label ${l.listingType === 'playset' ? 'type-playset' : ''}">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
           <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>

@@ -382,18 +382,22 @@ const CSV = (() => {
       ['OP01-060', '1', '', 'set'],
       ['OP15-113', '3', '', 'set'],
       ['OP14-031', '1', 'Japanese', 'set'],
-      ['OP13-029', '3', '', 'lot'],
-      ['EB01-012', '4', '', 'lot'],
+      ['OP13-029', '2', '', 'lot'],
+      ['EB01-012', '1', '', 'playset'],
+      ['EB04-002', '2', '', 'playset'],
     ];
     // Notes go in column F (index 5) so they don't interfere with data columns A-D
     const notes = [
       ['', '', '', '', '', 'HOW TO USE:'],
-      ['', '', '', '', '', 'Number       — card number e.g. OP01-060'],
-      ['', '', '', '', '', 'Qty          — how many copies you have (e.g. 3 SRs = qty 3)'],
-      ['', '', '', '', '', 'Language     — leave blank for English, write Japanese for JP'],
-      ['', '', '', '', '', 'Listing Type — set = add to set variation listing (default)'],
-      ['', '', '', '', '', '               lot = standalone bundle listing (e.g. 3x Nami)'],
-      ['', '', '', '', '', 'Everything else (name, price, condition) is auto-handled'],
+      ['', '', '', '', '', 'Listing Type options:'],
+      ['', '', '', '', '', '  set     = SR/SE/SEC card added to set variation listing'],
+      ['', '', '', '', '', '  lot     = standalone listing. Qty = card count'],
+      ['', '', '', '', '', '           e.g. qty 2 = "2x Nami OP14-031 3D2Y"'],
+      ['', '', '', '', '', '  playset = 4x card listing. Qty = number of PLAYSET LISTINGS'],
+      ['', '', '', '', '', '           e.g. qty 1 = one listing of 4 cards'],
+      ['', '', '', '', '', '           e.g. qty 2 = two separate listings of 4 cards each'],
+      ['', '', '', '', '', 'Language — blank = English. Write Japanese for JP'],
+      ['', '', '', '', '', 'Everything else (name price condition) is auto-handled'],
     ];
     // Merge examples and notes side by side on the same rows
     const dataRows = examples.map((ex, i) => {
