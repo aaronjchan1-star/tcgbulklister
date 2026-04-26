@@ -257,7 +257,7 @@ const CSV = (() => {
     const parts = [];
 
     // Header — name + number
-    parts.push(`<h2>${name || card.number} <span style="font-weight:normal;font-size:0.85em;color:#555;">${card.number}</span></h2>`);
+    parts.push(`<h2>${name || card.number} &nbsp;<small>${card.number}</small></h2>`);
 
     // Set name
     if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
