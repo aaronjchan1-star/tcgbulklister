@@ -101,7 +101,7 @@ const UI = (() => {
 
     // Name lookup runs in background — fills field whenever it resolves
     // Fetch full card details (name, type, power, effects) for use in descriptions
-    fetch(`/api/carddetails?number=${encodeURIComponent(number)}`)
+    window._cardDetailsPending = fetch(`/api/carddetails?number=${encodeURIComponent(number)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
@@ -113,7 +113,7 @@ const UI = (() => {
         window._currentCardDetails = data;
         updateLotPreview();
       })
-      .catch(() => {});
+      .catch(() => { window._cardDetailsPending = null; });
 
     const results = await imagePromise;
     const found = results.filter(Boolean);

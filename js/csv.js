@@ -121,8 +121,7 @@ const CSV = (() => {
       'Each card is shipped securely in a protective sleeve and rigid toploader.',
       'Select the card you want from the variation dropdown above.',
       'Combined postage available — request an invoice before paying if buying multiple.', '',
-      'Australian seller based in Sydney, NSW.',
-      'Fast dispatch within 3 business days of cleared payment.'
+      'Dispatched within 3 business days of cleared payment.'
     ].join('\n');
   }
 
@@ -285,15 +284,17 @@ const CSV = (() => {
 
     // Listing details
     parts.push('<hr>');
-    parts.push(`<p><strong>Condition:</strong> ${card.cond}</p>`);
-    parts.push(`<p><strong>Language:</strong> ${card.lang}</p>`);
-    parts.push(`<p><strong>Quantity:</strong> ${qty}</p>`);
+    parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang} &nbsp;|&nbsp; <b>Quantity:</b> ${qty}</p>`);
     parts.push('<hr>');
-    parts.push(`<p>Each card is shipped in a <strong>protective sleeve and rigid toploader</strong>.</p>`);
+    parts.push('<h3>Condition &amp; Grading</h3>');
+    parts.push('<p>Cards are assessed under good lighting and considered Near Mint — no major scratches, dents or creases visible to the naked eye. Minor factory print imperfections may be present and are not considered damage.</p>');
+    parts.push('<p><b>Please note:</b> Condition is assessed subjectively. We do not accept returns solely on the basis of grading disagreement. If a guaranteed grade is required, we recommend professional grading after purchase.</p>');
+    parts.push('<hr>');
+    parts.push('<h3>Shipping</h3>');
+    parts.push('<p>Shipped in a <b>protective sleeve inside a rigid toploader</b>, securely wrapped. Dispatched within <b>3 business days</b> of cleared payment.</p>');
     if (card.qty > 1 || card.listingType === 'playset') {
-      parts.push(`<p>Combined postage available — request an invoice before paying for multiple.</p>`);
+      parts.push('<p>Combined postage available — request a total before paying if purchasing multiple items.</p>');
     }
-    parts.push(`<p>🇦🇺 Australian seller based in Sydney, NSW. Fast dispatch within 3 business days.</p>`);
 
     return parts.join('');
   }

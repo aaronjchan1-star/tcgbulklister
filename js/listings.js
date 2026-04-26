@@ -54,7 +54,7 @@ const Listings = (() => {
     return `${OP_CDN}/${set}/${number}_${lang === 'Japanese' ? 'JP' : 'EN'}.webp`;
   }
 
-  function add() {
+  async function add() {
     const price = parseFloat(document.getElementById('f-price').value) || 0;
     const post  = getPostage();
     let card;
@@ -83,6 +83,12 @@ const Listings = (() => {
         const s = document.getElementById('save-status');
         if (s) { s.textContent = 'Press Enter to search for the card first.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
         return;
+      }
+
+      // Wait for card details fetch if still in progress
+      if (window._cardDetailsPending) {
+        try { await window._cardDetailsPending; } catch(e) {}
+        window._cardDetailsPending = null;
       }
 
       card = {
