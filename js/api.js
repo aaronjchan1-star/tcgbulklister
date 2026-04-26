@@ -64,7 +64,11 @@ const API = (() => {
     const items    = Listings.getItems();
     const unpriced = items.filter(c => !c.price || c.price === 0);
 
-    if (unpriced.length === 0) { alert('All cards already have prices.'); return; }
+    if (unpriced.length === 0) {
+      const s = document.getElementById('save-status');
+      if (s) { s.textContent = 'All cards already have prices.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
+      return;
+    }
 
     if (unpriced.length > 5 && !confirm(`Open ${unpriced.length} eBay tabs?`)) return;
 

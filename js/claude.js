@@ -49,7 +49,11 @@ const ClaudeAI = (() => {
       .map((c, i) => ({ card: c, index: i }))
       .filter(({ card }) => !card.price || card.price === 0);
 
-    if (unpriced.length === 0) { alert('All cards already have prices.'); return; }
+    if (unpriced.length === 0) {
+      const s = document.getElementById('save-status');
+      if (s) { s.textContent = 'All cards already have prices.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
+      return;
+    }
 
     const btn      = document.getElementById('claude-bulk-btn');
     const statusEl = document.getElementById('claude-bulk-status');

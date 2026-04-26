@@ -249,57 +249,53 @@ const CSV = (() => {
 
   /* ─── Download ─── */
   function buildLotDesc(card, name, setName) {
-    // Use custom description from import if provided
     if (card.customDesc && card.customDesc.trim()) return card.customDesc.trim();
 
-    const d = card.cardDetails;
-    const lines = [];
+    const d   = card.cardDetails;
+    const qty = card.listingType === 'playset' ? '4x (Playset)' : card.qty > 1 ? `${card.qty}x` : '1';
 
-    // Line 1: Name — Number
-    lines.push(`${name || card.number} — ${card.number}`);
+    const parts = [];
 
-    // Line 2: One Piece TCG · Set Name
-    if (setName) lines.push(`One Piece TCG · ${setName}`);
-    else          lines.push('One Piece TCG');
+    // Header — name + number
+    parts.push(`<h2>${name || card.number} <span style="font-weight:normal;font-size:0.85em;color:#555;">${card.number}</span></h2>`);
 
-    // Line 3: Type line e.g. "Leader • Red/Yellow • 4 Life"
-    if (d?.typeLine)  lines.push(d.typeLine);
-    // Line 4: Power line e.g. "5000 Power • Special"
-    if (d?.powerLine) lines.push(d.powerLine);
-    // Line 5: Traits e.g. "Egghead/Bonney Pirates"
-    if (d?.traits)    lines.push(d.traits);
+    // Set name
+    if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
 
-    lines.push('');
+    // Card type line: "Character • Purple • 10 Cost"
+    if (d?.typeLine) parts.push(`<p>${d.typeLine}</p>`);
+
+    // Power line: "12000 Power • Strike"
+    if (d?.powerLine) parts.push(`<p><strong>${d.powerLine}</strong></p>`);
+
+    parts.push('<hr>');
 
     // Effect text
     if (d?.effects?.length) {
       d.effects.forEach(e => {
-        lines.push(e);
-        lines.push('');
+        // Convert line breaks within effect to <br>
+        const formatted = e.replace(/\n/g, '<br>');
+        parts.push(`<p>${formatted}</p>`);
       });
+      parts.push('<hr>');
     }
+
+    // Traits
+    if (d?.traits) parts.push(`<p><em>${d.traits}</em></p>`);
 
     // Listing details
-    lines.push(`Condition: ${card.cond}`);
-    lines.push(`Language: ${card.lang}`);
-    if (card.listingType === 'playset') {
-      lines.push('Quantity: 4x (Playset)');
-    } else if (card.qty > 1) {
-      lines.push(`Quantity: ${card.qty}x`);
-    } else {
-      lines.push('Quantity: 1');
-    }
-
-    lines.push('');
-    lines.push('Card is shipped securely in a protective sleeve and rigid toploader.');
+    parts.push('<hr>');
+    parts.push(`<p><strong>Condition:</strong> ${card.cond}</p>`);
+    parts.push(`<p><strong>Language:</strong> ${card.lang}</p>`);
+    parts.push(`<p><strong>Quantity:</strong> ${qty}</p>`);
+    parts.push('<hr>');
+    parts.push(`<p>Each card is shipped in a <strong>protective sleeve and rigid toploader</strong>.</p>`);
     if (card.qty > 1 || card.listingType === 'playset') {
-      lines.push('Combined postage available — request an invoice before paying if purchasing multiple.');
+      parts.push(`<p>Combined postage available — request an invoice before paying for multiple.</p>`);
     }
-    lines.push('');
-    lines.push('Australian seller based in Sydney, NSW.');
-    lines.push('Fast dispatch within 3 business days of cleared payment.');
+    parts.push(`<p>🇦🇺 Australian seller based in Sydney, NSW. Fast dispatch within 3 business days.</p>`);
 
-    return lines.join('\n');
+    return parts.join('');
   }
 
   function buildStandaloneLotRow(card) {
