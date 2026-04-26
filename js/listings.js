@@ -85,11 +85,14 @@ const Listings = (() => {
         return;
       }
 
-      // Wait for card details fetch if still in progress
+      // Wait for card details fetch to complete (has name, type, effects)
       if (window._cardDetailsPending) {
         try { await window._cardDetailsPending; } catch(e) {}
         window._cardDetailsPending = null;
       }
+      // Use fetched name if field was auto-populated
+      const fetchedName = document.getElementById('f-op-name').value.trim();
+      if (fetchedName && fetchedName !== number) name = fetchedName;
 
       card = {
         game: 'onePiece',

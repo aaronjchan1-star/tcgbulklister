@@ -261,11 +261,17 @@ const CSV = (() => {
     // Set name
     if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
 
-    // Card type line: "Character • Purple • 10 Cost"
-    if (d?.typeLine) parts.push(`<p>${d.typeLine}</p>`);
+    // Card type line: "Character • Purple • 10 Cost" — clean newlines
+    if (d?.typeLine) {
+      const tl = d.typeLine.replace(/\n/g, ' · ').replace(/\s*·\s*/g, ' · ').replace(/\s*•\s*/g, ' · ').trim();
+      parts.push(`<p>${tl}</p>`);
+    }
 
     // Power line: "12000 Power • Strike"
-    if (d?.powerLine) parts.push(`<p><strong>${d.powerLine}</strong></p>`);
+    if (d?.powerLine) {
+      const pl = d.powerLine.replace(/\n/g, ' ').replace(/\s*•\s*/g, ' · ').trim();
+      parts.push(`<p><strong>${pl}</strong></p>`);
+    }
 
     parts.push('<hr>');
 

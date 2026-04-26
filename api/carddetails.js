@@ -82,16 +82,16 @@ export default async function handler(req, res) {
     const attribute = getRow('Attribute');
     const rarity    = getRow('Rarity');
 
-    // Build formatted type line like Limitless: "Leader • Red/Yellow • 4 Life"
+    // Build formatted type line: "Leader • Red/Yellow • 4 Life"
     let typeLine = null;
     const typeParts = [cardType, colour, cost ? `${cost} Cost` : (life ? `${life} Life` : null)].filter(Boolean);
-    if (typeParts.length) typeLine = typeParts.join(' • ');
+    if (typeParts.length) typeLine = typeParts.join(' · ');
 
-    // Build power line: "5000 Power • Special"
+    // Build power line: "5000 Power · Special"
     let powerLine = null;
     const powerParts = [power ? `${power} Power` : null, attribute].filter(Boolean);
-    if (powerParts.length) powerLine = powerParts.join(' • ');
-    if (counter) powerLine = (powerLine ? powerLine + ' ' : '') + `• +${counter} Counter`;
+    if (powerParts.length) powerLine = powerParts.join(' · ');
+    if (counter) powerLine = (powerLine ? powerLine + ' ' : '') + `· +${counter} Counter`;
 
     // ── Traits ────────────────────────────────────────────────
     const traitsMatch = html.match(/class="card-text-traits[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)>/i);
