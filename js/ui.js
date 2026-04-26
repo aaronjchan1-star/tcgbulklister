@@ -100,15 +100,20 @@ const UI = (() => {
     );
 
     // Name lookup runs in background — fills field whenever it resolves
-    fetchOPCardName(number).then(cardName => {
-      if (cardName) {
+    // Fetch full card details (name, type, power, effects) for use in descriptions
+    fetch(`/api/carddetails?number=${encodeURIComponent(number)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
         const nameField = document.getElementById('f-op-name');
-        if (!nameField.value.trim()) {
-          nameField.value = cardName.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+        if (data.name && !nameField.value.trim()) {
+          nameField.value = data.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
         }
+        window._currentOPSetName   = data.setName || null;
+        window._currentCardDetails = data;
         updateLotPreview();
-      }
-    });
+      })
+      .catch(() => {});
 
     const results = await imagePromise;
     const found = results.filter(Boolean);

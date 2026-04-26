@@ -99,9 +99,11 @@ const Listings = (() => {
         qty: listingType === 'lot' ? lotQty : qty,
         variant: variant ? { suffix: variant.suffix, label: variant.label } : { suffix: '', label: rarity },
         imageUrl:         variant?.url || null,
-        limitlessSetName: window._currentOPSetName || null
+        limitlessSetName: window._currentOPSetName || null,
+        cardDetails:      window._currentCardDetails || null
       };
-      window._currentOPSetName = null;
+      window._currentOPSetName   = null;
+      window._currentCardDetails = null;
 
     } else {
       const selected = UI.getSelectedPokemonCard();
