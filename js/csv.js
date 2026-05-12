@@ -330,13 +330,13 @@ const CSV = (() => {
     let raw;
 
     if (isPlayset) {
-      // Playset: "Jewelry Bonney EB04-002 Adventure on Kami's Island Playset" — no rarity
+      // Playset: "Jewelry Bonney EB04-002 Adventure on Kami's Island Playset"
       raw = `${name} ${card.number}${lang} ${setName} Playset`;
-    } else if (card.qty > 1) {
-      // 2x/3x/4x: "2x Jewelry Bonney EB04-002 Adventure on Kami's Island"
+    } else if (card.qty > 1 && card.listingType === 'lot') {
+      // 2x/3x: "2x Jewelry Bonney EB04-002 Adventure on Kami's Island"
       raw = `${card.qty}x ${name} ${card.number}${lang} ${setName}`;
     } else {
-      // 1x: "Jewelry Bonney EB04-002 Adventure on Kami's Island"
+      // Single (set listing or 1x lot): "Jewelry Bonney EB04-002 Adventure on Kami's Island"
       raw = `${name} ${card.number}${lang} ${setName}`;
     }
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
