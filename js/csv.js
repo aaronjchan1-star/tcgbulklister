@@ -223,18 +223,12 @@ const CSV = (() => {
     /* Variation child rows — Action must be BLANK on child rows, not 'Add' */
     sorted.forEach((c, i) => {
       const varName = allVarNames[i];
-      const imgUrl    = getCardImageUrl(c);
-      // eBay variation PicURL format: "VariationValue=ImageURL"
-      // This tells eBay which photo to show when buyer selects this variation
-      const varPicUrl = `${varName}=${imgUrl}`;
-
       rows.push([
         '',   // Action — blank for variation rows
         '', '', '', // Title, Category, ConditionID — blank
         c.price.toFixed(2),   // StartPrice
         c.qty,                // Quantity
-        '', '', '',           // Format, Duration, Description — blank
-        varPicUrl,            // PicURL — "VarName=ImageURL" switches photo per selection
+        '', '', '', '',       // Format, Duration, Description, PicURL — blank
         '', '', '', '',       // Shipping fields — blank
         '', '', '',           // Location, Dispatch, Returns — blank
         '', '',               // C:Game, C:Card Condition — blank on children
@@ -333,7 +327,7 @@ const CSV = (() => {
       CATEGORY[card.game] || '183454',
       CONDITION_MAP[card.cond] || '4000',
       card.price.toFixed(2),
-      card.qty,
+      card.listingType === 'playset' ? 1 : card.qty,  // playset = 1 listing, not 4 cards
       'FixedPriceItem',
       'GTC',
       buildLotDesc(card, name, setName),

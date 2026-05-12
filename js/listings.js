@@ -90,9 +90,15 @@ const Listings = (() => {
         try { await window._cardDetailsPending; } catch(e) {}
         window._cardDetailsPending = null;
       }
-      // Use fetched name if field was auto-populated
-      const fetchedName = document.getElementById('f-op-name').value.trim();
-      if (fetchedName && fetchedName !== number) name = fetchedName;
+      // Always re-read name from form after fetch (may have been auto-populated)
+      const nameEl = document.getElementById('f-op-name');
+      if (nameEl && nameEl.value.trim() && nameEl.value.trim() !== number) {
+        name = nameEl.value.trim();
+      }
+      // Also use name from fetched card details if available
+      if (window._currentCardDetails?.name && (!name || name === number)) {
+        name = window._currentCardDetails.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+      }
 
       card = {
         game: 'onePiece',
