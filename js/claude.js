@@ -88,6 +88,7 @@ const ClaudeAI = (() => {
         }
       } catch(e) {
         console.warn(`Failed ${card.number}:`, e.message);
+        statusEl.textContent = `✗ ${card.name || card.number} — ${e.message}`;
         failed++;
       }
 
