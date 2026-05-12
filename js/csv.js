@@ -86,11 +86,11 @@ const CSV = (() => {
   }
 
   /* ─── Titles / Descriptions ─── */
-  function buildTitle(setId, setName, game, lang, cond) {
-    // Single consolidated listing title
+  function buildTitle(setId, setName, game, lang, cond, batchNum, totalBatches) {
+    const batchSuffix = totalBatches > 1 ? ` (Pt ${batchNum})` : '';
     const raw = game === 'onePiece'
-      ? `One Piece TCG${lang === 'Japanese' ? ' Japanese' : ''} Singles Cards ${cond}`
-      : `Pokemon TCG Singles Cards ${cond}`;
+      ? `One Piece TCG${lang === 'Japanese' ? ' Japanese' : ''} Singles Cards ${cond}${batchSuffix}`
+      : `Pokemon TCG Singles Cards ${cond}${batchSuffix}`;
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
 
@@ -135,11 +135,33 @@ const CSV = (() => {
     return `${PKM_CDN}/${card.setId}/${card.number}_hires.png`;
   }
 
+  const MAX_VARIATIONS = 60; // eBay hard limit per variation listing
+
   /* ─── Grouping / Sorting ─── */
   function groupBySet(items) {
-    // Single listing — all cards in one variation listing
     if (items.length === 0) return [];
-    return [{ meta: items[0], cards: items }];
+    // Sort all cards first
+    const sorted = sortAllCards(items);
+    // Split into batches of MAX_VARIATIONS
+    const groups = [];
+    const totalBatches = Math.ceil(sorted.length / MAX_VARIATIONS);
+    for (let i = 0; i < sorted.length; i += MAX_VARIATIONS) {
+      const batch   = sorted.slice(i, i + MAX_VARIATIONS);
+      const batchNum = Math.floor(i / MAX_VARIATIONS) + 1;
+      const meta = { ...batch[0], _batchNum: batchNum, _totalBatches: totalBatches };
+      groups.push({ meta, cards: batch });
+    }
+    return groups;
+  }
+
+  function sortAllCards(items) {
+    return [...items].sort((a, b) => {
+      const sa = getSetId(a), sb = getSetId(b);
+      if (sa !== sb) return sa.localeCompare(sb);
+      const na = parseInt((a.number.split('-')[1] || a.number).replace(/[^0-9]/g, '')) || 0;
+      const nb = parseInt((b.number.split('-')[1] || b.number).replace(/[^0-9]/g, '')) || 0;
+      return na - nb;
+    });
   }
 
   function sortCards(cards) {
@@ -198,7 +220,7 @@ const CSV = (() => {
     /* Parent row */
     rows.push([
       'Add',
-      buildTitle(setId, setName, meta.game, meta.lang, meta.cond),
+      buildTitle(setId, setName, meta.game, meta.lang, meta.cond, meta._batchNum || 1, meta._totalBatches || 1),
       CATEGORY[meta.game] || '183454',
       CONDITION_MAP[meta.cond] || '4000',
       '',           // StartPrice — blank on parent
