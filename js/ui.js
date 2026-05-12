@@ -364,11 +364,11 @@ const UI = (() => {
 
   window.addEventListener('DOMContentLoaded', init);
 
-  let currentListingType = 'variation';
+  let currentListingType = 'lot-1';
 
   function setListingType(type) {
     currentListingType = type;
-    ['variation','lot-1','lot-2','lot-3','lot-4','playset'].forEach(t => {
+    ['lot-1','lot-2','lot-3','lot-4','playset'].forEach(t => {
       const el = document.getElementById(`type-${t}`);
       if (el) el.classList.toggle('active', type === t);
     });

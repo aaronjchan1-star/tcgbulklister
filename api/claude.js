@@ -1,9 +1,7 @@
 /**
  * api/claude.js
- * Pricing pipeline:
- * 1. Scrape eBay AU sold listings for this specific card + listing type
- * 2. Analyse prices intelligently (singles vs playsets vs lots)
- * 3. Fall back to Claude AI if no eBay data found
+ * Uses Claude with web_search to research eBay AU sold prices.
+ * Claude can read actual listings, filter variants, and price accurately.
  */
 
 export default async function handler(req, res) {
@@ -16,20 +14,63 @@ export default async function handler(req, res) {
   const { card } = req.body;
   if (!card) return res.status(400).json({ error: 'Missing card data' });
 
-  // ── Step 1: Scrape eBay AU sold listings ──────────────────
-  try {
-    const result = await scrapeEbayAU(card);
-    if (result) return res.status(200).json(result);
-  } catch(e) {
-    console.log('eBay scrape failed:', e.message);
-  }
-
-  // ── Step 2: Fall back to Claude AI ────────────────────────
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: 'API key not configured' });
 
+  const name      = card.name && card.name !== card.number ? card.name : '';
+  const number    = card.number.toUpperCase();
+  const variant   = card.variant?.label && card.variant.label !== 'Standard' && card.variant.label !== '' 
+    ? card.variant.label : null;
+  const lang      = card.lang === 'Japanese' ? 'Japanese' : 'English';
+  const isPlayset = card.listingType === 'playset';
+  const isLot     = card.listingType === 'lot' && card.qty > 1;
+  const qty       = card.qty || 1;
+
+  // Build a precise listing description for Claude to search
+  const cardDesc = [
+    name || number,
+    number,
+    variant ? `(${variant})` : '',
+    lang === 'Japanese' ? 'Japanese' : '',
+  ].filter(Boolean).join(' ');
+
+  const listingContext = isPlayset
+    ? `a playset (4x copies bundled)`
+    : isLot
+      ? `a ${qty}x lot`
+      : `a single card`;
+
+  const prompt = `You are pricing One Piece TCG cards for eBay Australia. 
+
+I need the current market price for ${listingContext}:
+- Card: ${cardDesc}
+- Condition: ${card.cond}
+
+Please search eBay Australia for SOLD listings of this exact card. Use the search query: "${number} ${name} One Piece site:ebay.com.au"
+
+IMPORTANT rules when analysing results:
+1. Only count sales of the EXACT variant — ${variant ? `this is the ${variant} version` : 'standard/regular version (NOT alternate art, NOT gold, NOT manga rare, NOT SEC)'}
+2. Only count ${lang} language copies
+3. Exclude: graded cards (PSA/BGS/CGC), sealed product, lots/bundles (unless pricing a lot)
+4. Only count Australian seller sales (prices in AUD)
+5. Focus on the last 60 days — older sales are less relevant
+6. If fewer than 3 matching sales found, note low confidence
+
+After reviewing the actual sold listings, provide your best price estimate.
+
+Respond ONLY with valid JSON:
+{
+  "price": 0.00,
+  "low": 0.00,
+  "mid": 0.00, 
+  "high": 0.00,
+  "confidence": "high|medium|low",
+  "sales_found": 0,
+  "notes": "brief summary of what you found"
+}`;
+
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,157 +79,52 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: buildClaudePrompt(card) }]
+        max_tokens: 1024,
+        tools: [
+          {
+            type: 'web_search_20250305',
+            name: 'web_search'
+          }
+        ],
+        messages: [{ role: 'user', content: prompt }]
       })
     });
 
-    if (!resp.ok) throw new Error(`Anthropic ${resp.status}`);
-    const data   = await resp.json();
-    const text   = data.content?.[0]?.text || '';
-    const result = parseJSON(text);
-    result.source = 'claude';
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Anthropic API ${response.status}: ${err}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract text from response (may include tool use blocks)
+    const textContent = data.content
+      ?.filter(b => b.type === 'text')
+      ?.map(b => b.text)
+      ?.join('') || '';
+
+    if (!textContent) throw new Error('No text response from Claude');
+
+    const result = parseJSON(textContent);
+    result.source = 'claude-search';
+    // Use mid as the recommended price if price not set
+    if (!result.price && result.mid) result.price = result.mid;
+    
     return res.status(200).json(result);
+
   } catch(err) {
+    console.error('Claude pricing error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
 
-/* ─── eBay AU scraper ─────────────────────────────────── */
-async function scrapeEbayAU(card) {
-  const name    = card.name && card.name !== card.number ? card.name : '';
-  const number  = card.number.toUpperCase();
-  const isLot   = card.listingType === 'lot';
-  const isPset  = card.listingType === 'playset';
-  const qty     = card.qty || 1;
-  const lang    = card.lang === 'Japanese' ? 'Japanese' : '';
-
-  // Build targeted search query
-  let query;
-  if (isPset) {
-    // Search for playsets of this card
-    query = `${number} ${name} One Piece playset 4x -PSA -BGS -CGC -graded`;
-  } else if (isLot && qty > 1) {
-    // Search for matching lot size
-    query = `${qty}x ${number} ${name} One Piece -PSA -BGS -CGC -graded`;
-  } else {
-    // Single card search
-    query = `${number} ${name} ${lang} One Piece -PSA -BGS -CGC -graded -playset -lot`.trim();
-  }
-
-  // Search eBay AU sold listings — AU sellers only (LH_PrefLoc=1), sorted by recent (sop=13)
-  const url = `https://www.ebay.com.au/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1&_sop=13&LH_PrefLoc=1&_ipg=60`;
-
-  const resp = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-AU,en;q=0.9',
-      'Accept': 'text/html'
-    },
-    signal: AbortSignal.timeout(10000)
-  });
-
-  if (!resp.ok) throw new Error(`eBay ${resp.status}`);
-  const html = await resp.text();
-
-  // Extract all sold prices
-  const prices = extractPrices(html, card);
-  if (prices.length === 0) return null;
-
-  // Filter to relevant price range — remove extreme outliers
-  const sorted  = [...prices].sort((a, b) => a - b);
-  const q1      = sorted[Math.floor(sorted.length * 0.25)];
-  const q3      = sorted[Math.floor(sorted.length * 0.75)];
-  const iqr     = q3 - q1;
-  const filtered = sorted.filter(p => p >= q1 - 1.5 * iqr && p <= q3 + 1.5 * iqr);
-  const relevant = filtered.length >= 2 ? filtered : sorted;
-
-  const median = relevant[Math.floor(relevant.length / 2)];
-  const low    = relevant[0];
-  const high   = relevant[relevant.length - 1];
-  const avg    = relevant.reduce((a, b) => a + b, 0) / relevant.length;
-
-  // Use slightly above median to account for current market vs sold prices
-  // (sold prices are slightly below what you'd list at)
-  const recommended = Math.round((median * 1.05) * 100) / 100;
-
-  return {
-    price:      recommended,
-    low:        Math.round(low * 100) / 100,
-    mid:        Math.round(median * 100) / 100,
-    high:       Math.round(high * 100) / 100,
-    count:      prices.length,
-    confidence: prices.length >= 5 ? 'high' : prices.length >= 3 ? 'medium' : 'low',
-    notes:      `${prices.length} eBay AU sold listing${prices.length !== 1 ? 's' : ''} · median $${median.toFixed(2)} · recommended $${recommended.toFixed(2)}`,
-    source:     'ebay-au'
-  };
-}
-
-function extractPrices(html, card) {
-  const prices = [];
-  const isPset = card.listingType === 'playset';
-  const qty    = card.qty || 1;
-
-  // eBay AU prices appear as "AU $12.50" in sold listings
-  const priceRegex = /AU \$(\d+(?:\.\d{1,2})?)/g;
-  let match;
-  while ((match = priceRegex.exec(html)) !== null) {
-    const price = parseFloat(match[1]);
-    // Filter to sensible TCG card price range
-    if (price < 0.50 || price > 5000) continue;
-
-    // For singles, exclude suspiciously high prices that are likely lots/playsets
-    if (!isPset && qty === 1 && price > 500) continue;
-
-    // For playsets, exclude very low prices that are likely singles
-    if (isPset && price < 3) continue;
-
-    prices.push(price);
-  }
-
-  return [...new Set(prices)]; // deduplicate
-}
-
-/* ─── Claude fallback ─────────────────────────────────── */
-function buildClaudePrompt(card) {
-  const isLot  = card.listingType === 'lot';
-  const isPset = card.listingType === 'playset';
-  const qty    = card.qty || 1;
-
-  const listingDesc = isPset
-    ? `a playset (4x copies bundled together)`
-    : isLot && qty > 1
-      ? `a ${qty}x lot (${qty} copies bundled together)`
-      : `a single card`;
-
-  return `You are a One Piece TCG pricing expert for eBay Australia in 2025.
-
-Estimate the current eBay AU selling price for ${listingDesc}:
-- Card: ${card.name || card.number}
-- Number: ${card.number}
-- Language: ${card.lang}
-- Condition: ${card.cond}
-- Rarity: ${card.variant?.label || 'SR'}
-
-eBay AU 2025 market context:
-- Most SR singles: $3–$15 AUD
-- Popular SR singles (Luffy/Zoro/Shanks): $8–$25 AUD
-- R singles: $1–$5 AUD, UC: $0.50–$2 AUD, C: $0.50–$1 AUD
-- Playsets (4x): roughly 3–3.5x the single price (discount for bulk)
-- 2x lots: roughly 1.8–2x single price
-- 3x lots: roughly 2.5–3x single price
-- Price conservatively — you're competing with many sellers
-
-Respond ONLY with valid JSON:
-{"low": 0.00, "mid": 0.00, "high": 0.00, "confidence": "low", "notes": "one sentence"}`;
-}
-
 function parseJSON(text) {
   try {
+    // Find JSON block in response
+    const match = text.match(/\{[\s\S]*"price"[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
     return JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch {
-    const m = text.match(/\{[\s\S]*?\}/);
-    if (m) return JSON.parse(m[0]);
-    throw new Error('Parse failed');
+    throw new Error('Could not parse price response');
   }
 }

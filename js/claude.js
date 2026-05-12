@@ -79,8 +79,12 @@ const ClaudeAI = (() => {
           Listings.updatePrice(index, price, result);
           success++;
           if (result.confidence === 'low') lowConf++;
+          // Show what Claude found for this card
+          const salesNote = result.sales_found !== undefined ? ` (${result.sales_found} sales found)` : '';
+          statusEl.textContent = `✓ ${card.name || card.number} → $${price.toFixed(2)} AUD${salesNote}`;
         } else {
           failed++;
+          statusEl.textContent = `✗ ${card.name || card.number} — no price data found`;
         }
       } catch(e) {
         console.warn(`Failed ${card.number}:`, e.message);

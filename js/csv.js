@@ -330,13 +330,8 @@ const CSV = (() => {
     let raw;
 
     if (isPlayset) {
-      // Playset: "Jewelry Bonney EB04-002 Adventure on Kami's Island Playset"
       raw = `${name} ${card.number}${lang} ${setName} Playset`;
-    } else if (card.qty > 1 && card.listingType === 'lot') {
-      // 2x/3x: "2x Jewelry Bonney EB04-002 Adventure on Kami's Island"
-      raw = `${card.qty}x ${name} ${card.number}${lang} ${setName}`;
     } else {
-      // Single (set listing or 1x lot): "Jewelry Bonney EB04-002 Adventure on Kami's Island"
       raw = `${name} ${card.number}${lang} ${setName}`;
     }
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
@@ -349,7 +344,7 @@ const CSV = (() => {
       CATEGORY[card.game] || '183454',
       CONDITION_MAP[card.cond] || '4000',
       card.price.toFixed(2),
-      card.listingType === 'playset' ? 1 : card.qty,  // playset = 1 listing, not 4 cards
+      card.listingType === 'playset' ? 1 : card.qty,  // playset = 1 bundle listing; others = qty cards
       'FixedPriceItem',
       'GTC',
       buildLotDesc(card, name, setName),
@@ -545,7 +540,7 @@ const CSV = (() => {
           const priceRaw   = colPrice >= 0 ? parseFloat(vals[colPrice] || '0') || 0 : 0;
           const isPlayset    = ltypeRaw === 'playset';
           const isLot        = ltypeRaw === 'lot';
-          const listingType  = isPlayset ? 'playset' : isLot ? 'lot' : 'variation';
+          const listingType  = isPlayset ? 'playset' : 'lot';  // all non-playset = lot (individual listing)
           // For playset: qty in CSV = number of playset listings
           // Each playset listing = 4 cards
           // qty=1 → one listing of 4; qty=2 → two listings of 4 each

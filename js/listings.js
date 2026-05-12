@@ -66,8 +66,8 @@ const Listings = (() => {
       const cond    = document.getElementById('f-op-cond').value;
       const qty         = parseInt(document.getElementById('f-op-qty').value) || 1;
       const rarity      = document.getElementById('f-op-rarity')?.value || 'SR';
-      const _ltype = UI.getListingType ? UI.getListingType() : 'variation';
-      const listingType = _ltype === 'playset' ? 'playset' : _ltype.startsWith('lot-') ? 'lot' : 'variation';
+      const _ltype = UI.getListingType ? UI.getListingType() : 'lot-1';
+      const listingType = _ltype === 'playset' ? 'playset' : 'lot';
       const lotQty = (listingType === 'lot' || listingType === 'playset')
         ? (UI.getLotQty ? UI.getLotQty() : parseInt(document.getElementById('f-op-qty').value) || 1)
         : qty;
@@ -310,7 +310,7 @@ const Listings = (() => {
       if (q === 3) return 'Triple';
       return `${q}x`;
     }
-    return 'Set listing';
+    return 'Single';
   }
 
   function listingTypeCss(item) {
