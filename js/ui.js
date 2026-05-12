@@ -101,13 +101,20 @@ const UI = (() => {
 
     // Name lookup runs in background — fills field whenever it resolves
     // Fetch full card details (name, type, power, effects) for use in descriptions
+    window._currentCardDetails = null;
+    window._currentOPSetName   = null;
     window._cardDetailsPending = fetch(`/api/carddetails?number=${encodeURIComponent(number)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!data) return;
+        if (!data || data.error) return;
         const nameField = document.getElementById('f-op-name');
-        if (data.name && !nameField.value.trim()) {
-          nameField.value = data.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+        const cleanName = n => n ? n.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim() : '';
+        // Always set name field from API (overrides empty or number-as-name)
+        if (data.name) {
+          const n = cleanName(data.name);
+          if (n && (!nameField.value.trim() || nameField.value.trim() === number)) {
+            nameField.value = n;
+          }
         }
         window._currentOPSetName   = data.setName || null;
         window._currentCardDetails = data;

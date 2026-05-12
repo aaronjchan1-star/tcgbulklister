@@ -89,7 +89,7 @@ const CSV = (() => {
   function buildTitle(setId, setName, game, lang, cond) {
     // Single consolidated listing title
     const raw = game === 'onePiece'
-      ? `One Piece TCG SR Singles${lang === 'Japanese' ? ' Japanese' : ''} Cards ${cond}`
+      ? `One Piece TCG${lang === 'Japanese' ? ' Japanese' : ''} Singles Cards ${cond}`
       : `Pokemon TCG Singles Cards ${cond}`;
     return raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
   }
@@ -112,7 +112,7 @@ const CSV = (() => {
     }).join('\n');
 
     const header = game === 'onePiece'
-      ? ['One Piece TCG SR Singles', 'Super Rare (SR) Cards — Near Mint / Raw (Ungraded)']
+      ? ['One Piece TCG Singles', 'Near Mint / Raw (Ungraded)']
       : ['Pokemon TCG Singles', 'Cards — Near Mint / Raw (Ungraded)'];
 
     return [
@@ -308,8 +308,8 @@ const CSV = (() => {
     let raw;
 
     if (isPlayset) {
-      // Playset: "Jewelry Bonney EB04-002 Rare Adventure on Kami's Island Playset"
-      raw = `${name} ${card.number}${rarity ? ' ' + rarity : ''}${lang} ${setName} Playset`;
+      // Playset: "Jewelry Bonney EB04-002 Adventure on Kami's Island Playset" — no rarity
+      raw = `${name} ${card.number}${lang} ${setName} Playset`;
     } else if (card.qty > 1) {
       // 2x/3x/4x: "2x Jewelry Bonney EB04-002 Adventure on Kami's Island"
       raw = `${card.qty}x ${name} ${card.number}${lang} ${setName}`;
@@ -542,7 +542,7 @@ const CSV = (() => {
             price:       priceRaw, // use CSV price if set, else 0 = Claude will fetch
             post:        0,
             listingType,
-            variant:     { suffix: '', label: 'SR' },
+            variant:     { suffix: '', label: '' },  // filled by Limitless enrichment
             imageUrl:    null,
             customDesc:  colDesc >= 0 && vals[colDesc] && vals[colDesc].trim() ? vals[colDesc].trim() : null
           };

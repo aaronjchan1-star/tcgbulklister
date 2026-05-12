@@ -112,7 +112,10 @@ const Listings = (() => {
         rarity,
         listingType,
         qty: listingType === 'lot' ? lotQty : qty,
-        variant: variant ? { suffix: variant.suffix, label: variant.label } : { suffix: '', label: rarity },
+        // Use actual rarity from Limitless if available
+        variant: variant
+          ? { suffix: variant.suffix, label: variant.label }
+          : { suffix: '', label: window._currentCardDetails?.rarity || rarity || '' },
         imageUrl:         variant?.url || null,
         limitlessSetName: window._currentOPSetName || null,
         cardDetails:      window._currentCardDetails || null
