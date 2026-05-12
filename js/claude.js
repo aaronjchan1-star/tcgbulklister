@@ -1,115 +1,151 @@
 /**
- * claude.js
- * Handles pricing via /api/claude — scrapes eBay AU sold listings,
- * falls back to Claude AI. Supports bulk (all unpriced) or single card.
+ * api/claude.js
+ * Prices cards by having Claude search eBay AU sold listings.
+ * Handles multi-turn conversation required when Claude uses web_search tool.
  */
 
-const ClaudeAI = (() => {
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  async function fetchPrice(card) {
-    const resp = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card })
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${resp.status}`);
-    }
-    return await resp.json();
-  }
+  const { card } = req.body;
+  if (!card) return res.status(400).json({ error: 'Missing card data' });
 
-  // Price a single card by index — called when user clicks the price field's fetch btn
-  async function priceOne(index) {
-    const items = Listings.getItems();
-    const card  = items[index];
-    if (!card) return;
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return res.status(500).json({ error: 'API key not configured' });
 
-    const statusEl = document.getElementById('save-status');
-    if (statusEl) { statusEl.textContent = `Researching ${card.name || card.number}...`; statusEl.style.opacity = '1'; }
+  const name      = card.name && card.name !== card.number ? card.name : '';
+  const number    = card.number.toUpperCase();
+  const variant   = card.variant?.label && card.variant.label !== 'Standard' && card.variant.label !== ''
+    ? card.variant.label : null;
+  const lang      = card.lang === 'Japanese' ? 'Japanese' : 'English';
+  const isPlayset = card.listingType === 'playset';
+  const isLot     = card.listingType === 'lot' && (card.qty || 1) > 1;
+  const qty       = card.qty || 1;
 
-    try {
-      const result = await fetchPrice(card);
-      const price  = result.price || result.mid;
-      if (price && price >= 0.50) {
-        Listings.updatePrice(index, price, result);
-      }
-    } catch(e) {
-      console.warn('priceOne failed:', e.message);
-    }
+  const listingContext = isPlayset
+    ? `a playset (4x copies bundled together)`
+    : isLot ? `a ${qty}x lot` : `a single card`;
 
-    if (statusEl) {
-      setTimeout(() => { statusEl.style.opacity = '0'; }, 2000);
-    }
-  }
+  const variantNote = variant
+    ? `This is the ${variant} version specifically.`
+    : `This is the standard/regular version (NOT alternate art, NOT gold, NOT manga rare, NOT SEC variant).`;
 
-  async function bulkPrice() {
-    const items    = Listings.getItems();
-    const unpriced = items
-      .map((c, i) => ({ card: c, index: i }))
-      .filter(({ card }) => !card.price || card.price === 0);
+  const searchQuery = `${number} ${name} One Piece TCG ${lang === 'Japanese' ? 'Japanese ' : ''}sold eBay Australia`;
 
-    if (unpriced.length === 0) {
-      const s = document.getElementById('save-status');
-      if (s) { s.textContent = 'All cards already have prices.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
-      return;
-    }
+  const prompt = `You are pricing One Piece TCG cards for eBay Australia.
 
-    const btn      = document.getElementById('claude-bulk-btn');
-    const statusEl = document.getElementById('claude-bulk-status');
-    const progress = document.getElementById('claude-progress-fill');
+Search eBay Australia for recently SOLD listings of this card:
+- Card number: ${number}
+- Card name: ${name || 'unknown'}
+- ${variantNote}
+- Language: ${lang}
+- Condition: ${card.cond}
+- I need the price for: ${listingContext}
 
-    btn.disabled           = true;
-    statusEl.style.display = 'block';
-    document.getElementById('claude-progress-wrap').style.display = 'block';
+Search for: "${searchQuery}"
 
-    let success = 0, failed = 0, lowConf = 0;
+After searching, analyse the results carefully:
+1. Only use sales of the EXACT same variant (${variant || 'standard'})
+2. Only ${lang} language copies
+3. Exclude graded cards (PSA/BGS/CGC/ACE), sealed product, and mixed lots unless pricing a lot
+4. Only AUD prices from Australian sellers
+5. Focus on sales from the last 90 days
 
-    for (let i = 0; i < unpriced.length; i++) {
-      const { card, index } = unpriced[i];
-      const pct = Math.round((i / unpriced.length) * 100);
+Respond ONLY with this JSON (no other text before or after):
+{"price":0.00,"low":0.00,"mid":0.00,"high":0.00,"confidence":"high|medium|low","sales_found":0,"notes":"what you found"}`;
 
-      statusEl.textContent = `Researching ${i + 1}/${unpriced.length}: ${card.name || card.number} (${card.listingType || 'set'})...`;
-      if (progress) progress.style.width = `${pct}%`;
+  try {
+    // Step 1: Send initial request with web_search tool
+    const messages = [{ role: 'user', content: prompt }];
+    
+    let finalText = '';
+    let iterations = 0;
+    const MAX_ITER = 5;
 
-      try {
-        const result = await fetchPrice(card);
-        const price  = result.price || result.mid;
-        if (price && price >= 0.50) {
-          Listings.updatePrice(index, price, result);
-          success++;
-          if (result.confidence === 'low') lowConf++;
-          // Show what Claude found for this card
-          const salesNote = result.sales_found !== undefined ? ` (${result.sales_found} sales found)` : '';
-          statusEl.textContent = `✓ ${card.name || card.number} → $${price.toFixed(2)} AUD${salesNote}`;
-        } else {
-          failed++;
-          statusEl.textContent = `✗ ${card.name || card.number} — no price data found`;
-        }
-      } catch(e) {
-        console.warn(`Failed ${card.number}:`, e.message);
-        statusEl.textContent = `✗ ${card.name || card.number} — ${e.message}`;
-        failed++;
+    while (iterations < MAX_ITER) {
+      iterations++;
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'web-search-2025-03-05'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
       }
 
-      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 500));
+      const data = await response.json();
+      const stopReason = data.stop_reason;
+
+      // Collect any text from this response
+      const textBlocks = (data.content || []).filter(b => b.type === 'text');
+      if (textBlocks.length) {
+        finalText += textBlocks.map(b => b.text).join('');
+      }
+
+      // If Claude finished, we're done
+      if (stopReason === 'end_turn') break;
+
+      // If Claude used a tool, add assistant response and continue
+      if (stopReason === 'tool_use') {
+        messages.push({ role: 'assistant', content: data.content });
+        
+        // Add tool results for each tool use block
+        const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
+        const toolResults = toolUseBlocks.map(tu => ({
+          type: 'tool_result',
+          tool_use_id: tu.id,
+          content: tu.input?.query ? `Searching for: ${tu.input.query}` : 'Search executed'
+        }));
+        
+        messages.push({ role: 'user', content: toolResults });
+        continue;
+      }
+
+      break;
     }
 
-    if (progress) progress.style.width = '100%';
+    if (!finalText) throw new Error('No response text from Claude');
 
-    const ebayCount  = Listings.getItems().filter(c => c.priceSource === 'ebay-au').length;
-    const claudeCount = Listings.getItems().filter(c => c.priceSource === 'claude').length;
-    const srcNote    = `<span style="color:var(--green);">${ebayCount} from eBay AU${claudeCount > 0 ? `, ${claudeCount} from Claude AI` : ''}</span>`;
-    statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed. ${srcNote}${lowConf > 0 ? ` <span style="color:var(--amber);">${lowConf} low confidence</span>` : ''}`;
-    btn.disabled = false;
-    Listings.render();
+    const result = parseJSON(finalText);
+    result.source = 'claude-search';
+    if (!result.price && result.mid) result.price = result.mid;
 
-    setTimeout(() => {
-      statusEl.style.display = 'none';
-      document.getElementById('claude-progress-wrap').style.display = 'none';
-      if (progress) progress.style.width = '0%';
-    }, 12000);
+    return res.status(200).json(result);
+
+  } catch(err) {
+    console.error('Pricing error:', err.message);
+    // Return a structured error so the client knows what happened
+    return res.status(500).json({ error: err.message });
   }
+}
 
-  return { bulkPrice, priceOne };
-})();
+function parseJSON(text) {
+  // Try to find JSON in the response
+  const match = text.match(/\{[^{}]*"price"[^{}]*\}/s);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch(e) {}
+  }
+  // Try cleaning the whole text
+  try {
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
+  } catch {
+    throw new Error('Could not parse price from: ' + text.slice(0, 100));
+  }
+}
