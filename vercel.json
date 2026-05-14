@@ -12,5 +12,8 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/claude.js": { "maxDuration": 30 }
+  }
 }

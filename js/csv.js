@@ -371,32 +371,18 @@ const CSV = (() => {
       return;
     }
 
-    // Always export all cards regardless of price — user can set prices in CSV or fix after
-    const exportItems = rawItems;
-
-    // Split into variation listing vs standalone lot listings
-    const variationItems = exportItems.filter(c => c.listingType !== 'lot' && c.listingType !== 'playset');
-    const lotItems       = exportItems.filter(c => c.listingType === 'lot' || c.listingType === 'playset');
+    // All cards = individual listings. Normalise legacy 'variation' type to 'lot'.
+    const normItems = rawItems.map(c => ({
+      ...c,
+      listingType: (!c.listingType || c.listingType === 'variation') ? 'lot' : c.listingType
+    }));
 
     const allRows = [HEADERS.join(',')];
-
-    // Variation listing (grouped)
-    if (variationItems.length > 0) {
-      const groups = groupBySet(variationItems);
-      groups.forEach(g => allRows.push(...buildGroupRows(g)));
-    }
-
-    // Standalone lot listings (one row each, sorted by set then number)
-    if (lotItems.length > 0) {
-      const sortedLots = [...lotItems].sort((a, b) => {
-        const sa = a.number.split('-')[0], sb = b.number.split('-')[0];
-        if (sa !== sb) return sa.localeCompare(sb);
-        const na = parseInt(a.number.split('-')[1]) || 0;
-        const nb = parseInt(b.number.split('-')[1]) || 0;
-        return na - nb;
-      });
-      sortedLots.forEach(c => allRows.push(buildStandaloneLotRow(c)));
-    }
+    [...normItems].sort((a, b) => {
+      const sa = a.number.split('-')[0], sb = b.number.split('-')[0];
+      if (sa !== sb) return sa.localeCompare(sb);
+      return (parseInt(a.number.split('-')[1]) || 0) - (parseInt(b.number.split('-')[1]) || 0);
+    }).forEach(c => allRows.push(buildStandaloneLotRow(c)));
 
     const csv  = allRows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

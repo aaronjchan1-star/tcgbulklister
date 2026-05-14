@@ -1,151 +1,83 @@
 /**
- * api/claude.js
- * Prices cards by having Claude search eBay AU sold listings.
- * Handles multi-turn conversation required when Claude uses web_search tool.
+ * js/claude.js — Claude AI bulk pricing (client side)
  */
+const ClaudeAI = (() => {
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  async function fetchPrice(card) {
+    const resp = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${resp.status}`);
+    }
+    return resp.json();
+  }
 
-  const { card } = req.body;
-  if (!card) return res.status(400).json({ error: 'Missing card data' });
+  async function bulkPrice() {
+    const saveStatus = document.getElementById('save-status');
+    const btn        = document.getElementById('claude-bulk-btn');
+    const statusEl   = document.getElementById('claude-bulk-status');
+    const progress   = document.getElementById('claude-progress-fill');
+    const progWrap   = document.getElementById('claude-progress-wrap');
 
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return res.status(500).json({ error: 'API key not configured' });
+    // Immediate feedback
+    if (saveStatus) { saveStatus.textContent = 'Starting price research...'; saveStatus.style.opacity = '1'; }
 
-  const name      = card.name && card.name !== card.number ? card.name : '';
-  const number    = card.number.toUpperCase();
-  const variant   = card.variant?.label && card.variant.label !== 'Standard' && card.variant.label !== ''
-    ? card.variant.label : null;
-  const lang      = card.lang === 'Japanese' ? 'Japanese' : 'English';
-  const isPlayset = card.listingType === 'playset';
-  const isLot     = card.listingType === 'lot' && (card.qty || 1) > 1;
-  const qty       = card.qty || 1;
-
-  const listingContext = isPlayset
-    ? `a playset (4x copies bundled together)`
-    : isLot ? `a ${qty}x lot` : `a single card`;
-
-  const variantNote = variant
-    ? `This is the ${variant} version specifically.`
-    : `This is the standard/regular version (NOT alternate art, NOT gold, NOT manga rare, NOT SEC variant).`;
-
-  const searchQuery = `${number} ${name} One Piece TCG ${lang === 'Japanese' ? 'Japanese ' : ''}sold eBay Australia`;
-
-  const prompt = `You are pricing One Piece TCG cards for eBay Australia.
-
-Search eBay Australia for recently SOLD listings of this card:
-- Card number: ${number}
-- Card name: ${name || 'unknown'}
-- ${variantNote}
-- Language: ${lang}
-- Condition: ${card.cond}
-- I need the price for: ${listingContext}
-
-Search for: "${searchQuery}"
-
-After searching, analyse the results carefully:
-1. Only use sales of the EXACT same variant (${variant || 'standard'})
-2. Only ${lang} language copies
-3. Exclude graded cards (PSA/BGS/CGC/ACE), sealed product, and mixed lots unless pricing a lot
-4. Only AUD prices from Australian sellers
-5. Focus on sales from the last 90 days
-
-Respond ONLY with this JSON (no other text before or after):
-{"price":0.00,"low":0.00,"mid":0.00,"high":0.00,"confidence":"high|medium|low","sales_found":0,"notes":"what you found"}`;
-
-  try {
-    // Step 1: Send initial request with web_search tool
-    const messages = [{ role: 'user', content: prompt }];
-    
-    let finalText = '';
-    let iterations = 0;
-    const MAX_ITER = 5;
-
-    while (iterations < MAX_ITER) {
-      iterations++;
-      
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'web-search-2025-03-05'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          messages
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
-      }
-
-      const data = await response.json();
-      const stopReason = data.stop_reason;
-
-      // Collect any text from this response
-      const textBlocks = (data.content || []).filter(b => b.type === 'text');
-      if (textBlocks.length) {
-        finalText += textBlocks.map(b => b.text).join('');
-      }
-
-      // If Claude finished, we're done
-      if (stopReason === 'end_turn') break;
-
-      // If Claude used a tool, add assistant response and continue
-      if (stopReason === 'tool_use') {
-        messages.push({ role: 'assistant', content: data.content });
-        
-        // Add tool results for each tool use block
-        const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
-        const toolResults = toolUseBlocks.map(tu => ({
-          type: 'tool_result',
-          tool_use_id: tu.id,
-          content: tu.input?.query ? `Searching for: ${tu.input.query}` : 'Search executed'
-        }));
-        
-        messages.push({ role: 'user', content: toolResults });
-        continue;
-      }
-
-      break;
+    const items = Listings.getItems();
+    if (!items || !items.length) {
+      if (saveStatus) { saveStatus.textContent = 'No cards in list.'; setTimeout(() => saveStatus.style.opacity = '0', 3000); }
+      return;
     }
 
-    if (!finalText) throw new Error('No response text from Claude');
+    const unpriced = items
+      .map((c, i) => ({ card: c, index: i }))
+      .filter(({ card }) => !card.price || card.price === 0);
 
-    const result = parseJSON(finalText);
-    result.source = 'claude-search';
-    if (!result.price && result.mid) result.price = result.mid;
+    if (unpriced.length === 0) {
+      if (saveStatus) { saveStatus.textContent = 'All cards already have prices.'; setTimeout(() => saveStatus.style.opacity = '0', 3000); }
+      return;
+    }
 
-    return res.status(200).json(result);
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.style.display = 'block';
+    if (progWrap) progWrap.style.display = 'block';
+    if (saveStatus) saveStatus.style.opacity = '0';
 
-  } catch(err) {
-    console.error('Pricing error:', err.message);
-    // Return a structured error so the client knows what happened
-    return res.status(500).json({ error: err.message });
+    let success = 0, failed = 0, lowConf = 0;
+
+    for (let i = 0; i < unpriced.length; i++) {
+      const { card, index } = unpriced[i];
+      if (progress) progress.style.width = `${Math.round(i / unpriced.length * 100)}%`;
+      if (statusEl) statusEl.textContent = `Researching ${i + 1}/${unpriced.length}: ${card.name || card.number}...`;
+
+      try {
+        const result = await fetchPrice(card);
+        const price  = result.price || result.mid;
+        if (price && price >= 0.50) {
+          Listings.updatePrice(index, price, result);
+          success++;
+          if (result.confidence === 'low') lowConf++;
+          if (statusEl) statusEl.textContent = `✓ ${card.name || card.number} → $${price.toFixed(2)} AUD`;
+        } else {
+          failed++;
+          if (statusEl) statusEl.textContent = `✗ ${card.name || card.number} — no data`;
+        }
+      } catch(e) {
+        failed++;
+        if (statusEl) statusEl.textContent = `✗ ${card.name || card.number} — ${e.message}`;
+      }
+
+      if (i < unpriced.length - 1) await new Promise(r => setTimeout(r, 300));
+    }
+
+    if (progress) progress.style.width = '100%';
+    if (statusEl) statusEl.innerHTML = `Done — <strong>${success}</strong> priced, <strong>${failed}</strong> failed.${lowConf > 0 ? ` <span style="color:var(--amber)">${lowConf} low confidence — verify on eBay</span>` : ''}`;
+    if (btn) btn.disabled = false;
+    Listings.render();
   }
-}
 
-function parseJSON(text) {
-  // Try to find JSON in the response
-  const match = text.match(/\{[^{}]*"price"[^{}]*\}/s);
-  if (match) {
-    try { return JSON.parse(match[0]); } catch(e) {}
-  }
-  // Try cleaning the whole text
-  try {
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
-  } catch {
-    throw new Error('Could not parse price from: ' + text.slice(0, 100));
-  }
-}
+  return { bulkPrice };
+})();
