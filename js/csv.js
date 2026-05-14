@@ -266,8 +266,14 @@ const CSV = (() => {
   function buildLotDesc(card, name, setName) {
     if (card.customDesc && card.customDesc.trim()) return card.customDesc.trim();
 
-    const d   = card.cardDetails;
-    const qty = card.listingType === 'playset' ? '4x (Playset)' : card.qty > 1 ? `${card.qty}x` : '1';
+    const d = card.cardDetails;
+    // For playset: always 4 cards. For others: use actual qty.
+    // Determine display qty for description
+    // For playset: always say 4 cards. For lot with qty>1: show qty. For single: always 1.
+    const effectiveQty = card.listingType === 'playset' ? 4 : (card.qty || 1);
+    const qtyDisplay   = card.listingType === 'playset'
+      ? 'Competitive Playset (4 cards)'
+      : effectiveQty > 1 ? `${effectiveQty}` : '1';
 
     const parts = [];
 
@@ -306,7 +312,7 @@ const CSV = (() => {
 
     // Listing details
     parts.push('<hr>');
-    parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang} &nbsp;|&nbsp; <b>Quantity:</b> ${qty}</p>`);
+    parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang} &nbsp;|&nbsp; <b>Quantity:</b> ${qtyDisplay}</p>`);
     parts.push('<hr>');
     parts.push('<h3>Condition &amp; Grading</h3>');
     parts.push('<p>Cards are assessed under good lighting and considered Near Mint — no major scratches, dents or creases visible to the naked eye. Minor factory print imperfections may be present and are not considered damage.</p>');
