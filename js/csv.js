@@ -312,7 +312,12 @@ const CSV = (() => {
 
     // Listing details
     parts.push('<hr>');
-    parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang} &nbsp;|&nbsp; <b>Quantity:</b> ${qtyDisplay}</p>`);
+    // Only show Quantity for playsets — singles and lots don't need it
+    if (card.listingType === 'playset') {
+      parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang} &nbsp;|&nbsp; <b>Quantity:</b> ${qtyDisplay}</p>`);
+    } else {
+      parts.push(`<p><b>Condition:</b> ${card.cond} &nbsp;|&nbsp; <b>Language:</b> ${card.lang}</p>`);
+    }
     parts.push('<hr>');
     parts.push('<h3>Condition &amp; Grading</h3>');
     parts.push('<p>Cards are assessed under good lighting and considered Near Mint — no major scratches, dents or creases visible to the naked eye. Minor factory print imperfections may be present and are not considered damage.</p>');
@@ -349,8 +354,8 @@ const CSV = (() => {
       title,
       CATEGORY[card.game] || '183454',
       CONDITION_MAP[card.cond] || '4000',
-      card.price.toFixed(2),
-      card.listingType === 'playset' ? 1 : card.qty,  // playset = 1 bundle listing; others = qty cards
+      Math.max(1.00, card.price || 0).toFixed(2),  // eBay AU minimum is $1.00
+      card.listingType === 'playset' ? 1 : card.qty,
       'FixedPriceItem',
       'GTC',
       buildLotDesc(card, name, setName),
