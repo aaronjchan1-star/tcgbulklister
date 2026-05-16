@@ -50,6 +50,7 @@
       <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
       <button class="game-btn" id="btn-pk" onclick="UI.setGame('pokemon')">Pokémon</button>
       <button class="game-btn" id="btn-rb" onclick="UI.setGame('riftbound')">Riftbound</button>
+      <button class="game-btn" id="btn-ygo" onclick="UI.setGame('yugioh')">Yu-Gi-Oh!</button>
     </div>
 
     <!-- One Piece fields -->
@@ -58,7 +59,7 @@
         <div class="field">
           <label>Card number <span style="color:var(--text-muted); font-weight:400;">— press Enter to search</span></label>
           <div class="input-action-row">
-            <input type="text" id="f-op-number" placeholder="e.g. OP05-119" maxlength="12" />
+            <input type="text" id="f-op-number" placeholder="e.g. OP05-119" maxlength="12" onkeydown="if(event.key==='Enter') UI.searchOPVariants()" />
             <button class="btn-lookup" onclick="UI.searchOPVariants()">Search</button>
           </div>
           <div class="lookup-status" id="lookup-status"></div>
@@ -93,21 +94,6 @@
           <input type="number" id="f-op-qty" value="1" min="1" max="99" />
         </div>
         <input type="hidden" id="f-op-rarity" value="SR" />
-      </div>
-
-      <!-- Listing type toggle -->
-      <div class="listing-type-row" style="margin-bottom:12px;">
-        <label style="font-size:12px; color:var(--text-muted); margin-bottom:6px; display:block;">Listing type</label>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="type-btn active" id="type-lot-1" onclick="UI.setListingType('lot-1')">1x</button>
-          <button class="type-btn" id="type-lot-2" onclick="UI.setListingType('lot-2')">2x</button>
-          <button class="type-btn" id="type-lot-3" onclick="UI.setListingType('lot-3')">3x</button>
-          <button class="type-btn" id="type-lot-4" onclick="UI.setListingType('lot-4')">4x</button>
-          <button class="type-btn" id="type-playset" onclick="UI.setListingType('playset')" title="4x cards as a competitive playset bundle">Playset</button>
-        </div>
-        <div id="lot-label-wrap" style="display:none; margin-top:8px; font-size:12px; color:var(--text-muted);">
-          Title preview: <span id="lot-title-preview" style="color:var(--text);">—</span>
-        </div>
       </div>
 
       <!-- One Piece variant picker -->
@@ -187,6 +173,59 @@
           <label>Qty</label>
           <input type="number" id="f-rb-qty" value="1" min="1" max="99" />
         </div>
+      </div>
+    </div>
+
+    <!-- Yu-Gi-Oh! fields -->
+    <div id="ygo-fields" style="display:none;">
+      <div class="form-row row-5" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Card number <span style="color:var(--text-muted); font-weight:400;">— press Enter to search</span></label>
+          <div class="input-action-row">
+            <input type="text" id="f-ygo-number" placeholder="e.g. LOCR-JP001" maxlength="16"
+              onkeydown="if(event.key==='Enter') UI.searchYugiohCard()" />
+            <button class="btn-lookup" onclick="UI.searchYugiohCard()">Search</button>
+          </div>
+          <div class="lookup-status" id="ygo-lookup-status"></div>
+          <div id="ygo-card-preview" style="display:none; margin-top:8px;">
+            <img id="ygo-card-preview-img" src="" alt="" style="width:52px; border-radius:5px; border:1px solid #2a2a2a;" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Card name</label>
+          <input type="text" id="f-ygo-name" placeholder="Auto-filled on search" />
+        </div>
+        <div class="field">
+          <label>Edition</label>
+          <select id="f-ygo-edition">
+            <option value="1st Edition">1st Edition</option>
+            <option value="Unlimited">Unlimited</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Condition</label>
+          <select id="f-ygo-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Qty</label>
+          <input type="number" id="f-ygo-qty" value="1" min="1" max="99" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Listing type — shared across all games -->
+    <div class="listing-type-row" style="margin-bottom:12px;">
+      <label style="font-size:12px; color:var(--text-muted); margin-bottom:6px; display:block;">Listing type</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="type-btn active" id="type-lot-1" onclick="UI.setListingType('lot-1')">1x</button>
+        <button class="type-btn" id="type-lot-2" onclick="UI.setListingType('lot-2')">2x</button>
+        <button class="type-btn" id="type-lot-3" onclick="UI.setListingType('lot-3')">3x</button>
+        <button class="type-btn" id="type-lot-4" onclick="UI.setListingType('lot-4')">4x</button>
+        <button class="type-btn" id="type-playset" onclick="UI.setListingType('playset')" title="4x cards as a competitive playset bundle">Playset</button>
       </div>
     </div>
 

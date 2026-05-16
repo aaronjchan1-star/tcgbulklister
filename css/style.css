@@ -568,3 +568,10 @@ input:focus, select:focus {
   color: #c084fc;
   border: 1px solid #4a2a7a;
 }
+
+/* ─── Yu-Gi-Oh! badge ─── */
+.badge-ygo {
+  background: #1a1a00;
+  color: #facc15;
+  border: 1px solid #4a4000;
+}

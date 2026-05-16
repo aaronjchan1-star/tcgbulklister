@@ -21,7 +21,7 @@
 
 const CSV = (() => {
 
-  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050' }; // 183050 = Other CCG Individual Cards
+  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050', yugioh: '183454' }; // 183050 = Other CCG Individual Cards
 
   const CONDITION_MAP = {
     'Near Mint':        '4000',
@@ -283,6 +283,7 @@ const CSV = (() => {
 
     // Header — name + number
     parts.push(`<h2>${name || card.number} &nbsp;<small>${card.number}</small></h2>`);
+    if (card.edition) parts.push(`<p><b>Edition:</b> ${card.edition}</p>`);
 
     // Set name
     if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
@@ -345,9 +346,13 @@ const CSV = (() => {
     let raw;
 
     if (card.game === 'riftbound') {
-      // Riftbound: "Kha'Zix UNL-053 Unleashed" or "Kha'Zix UNL-053 Unleashed Playset"
       const rbSuffix = isPlayset ? ' Playset' : '';
       raw = `${name} ${card.number} ${setName}${rbSuffix}`;
+    } else if (card.game === 'yugioh') {
+      // Yu-Gi-Oh: "Dark Magician LOCR-JP001 Legacy of Chaos Reprint 1st Edition"
+      const edition = card.edition ? ` ${card.edition}` : '';
+      const ygoSuffix = isPlayset ? ' Playset' : '';
+      raw = `${name} ${card.number} ${setName}${edition}${ygoSuffix}`;
     } else if (isPlayset) {
       raw = `${name} ${card.number}${lang} ${setName} Playset`;
     } else {
