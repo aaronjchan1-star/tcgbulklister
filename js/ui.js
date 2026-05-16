@@ -27,11 +27,21 @@ const UI = (() => {
   function setGame(game) {
     currentGame = game;
     Listings.setGame(game);
-    document.getElementById('op-fields').style.display = game === 'onePiece' ? 'block' : 'none';
-    document.getElementById('pk-fields').style.display = game === 'pokemon'  ? 'block' : 'none';
-    document.getElementById('btn-op').classList.toggle('active', game === 'onePiece');
-    document.getElementById('btn-pk').classList.toggle('active', game === 'pokemon');
-    document.getElementById('f-price').value = '';
+    // Show/hide game-specific fields — use ?. so missing elements don't crash
+    const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
+    const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none';  };
+    ['op-fields','pk-fields','rb-fields','ygo-fields'].forEach(hide);
+    if (game === 'onePiece')  show('op-fields');
+    if (game === 'pokemon')   show('pk-fields');
+    if (game === 'riftbound') show('rb-fields');
+    if (game === 'yugioh')    show('ygo-fields');
+    // Toggle active button
+    ['btn-op','btn-pk','btn-rb','btn-ygo'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.classList.remove('active');
+    });
+    const activeBtn = { onePiece:'btn-op', pokemon:'btn-pk', riftbound:'btn-rb', yugioh:'btn-ygo' }[game];
+    if (activeBtn) { const el = document.getElementById(activeBtn); if (el) el.classList.add('active'); }
+    const priceEl = document.getElementById('f-price'); if (priceEl) priceEl.value = '';
     resetOPPicker();
     resetPokemonPicker();
   }
