@@ -561,3 +561,10 @@ input:focus, select:focus {
   color: #86efac;
   border-color: #1e4a1e;
 }
+
+/* ─── Riftbound badge ─── */
+.badge-rb {
+  background: #1e1a2e;
+  color: #c084fc;
+  border: 1px solid #4a2a7a;
+}

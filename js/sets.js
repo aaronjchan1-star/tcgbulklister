@@ -7,6 +7,16 @@
 
 const SETS = {
 
+  riftbound: [
+    { id: 'OGN', name: 'Origins' },
+    { id: 'OGS', name: 'Origins Overnumbered' },
+    { id: 'SFD', name: 'Spiritforged' },
+    { id: 'SFS', name: 'Spiritforged Overnumbered' },
+    { id: 'UNL', name: 'Unleashed' },
+    { id: 'ULS', name: 'Unleashed Overnumbered' },
+  ],
+
+
   onePiece: [
     { id: 'OP01', name: 'OP01 - Romance Dawn' },
     { id: 'OP02', name: 'OP02 - Paramount War' },

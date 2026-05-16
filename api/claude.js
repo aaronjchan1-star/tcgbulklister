@@ -34,8 +34,8 @@ Condition: Near Mint
 Listing: ${listingType}
 
 eBay AU 2025 price ranges:
-- C/UC: $0.50–2 AUD each
-- R: $1–5 AUD each  
+- C/UC: $1.00–2 AUD each (minimum $1.00 — eBay AU floor)
+- R: $1.00–5 AUD each  
 - SR (popular chars Luffy/Zoro/Nami/Shanks): $8–25 AUD
 - SR (others): $3–10 AUD
 - SE/Special: $10–60 AUD
