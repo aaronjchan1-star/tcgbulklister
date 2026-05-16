@@ -417,10 +417,70 @@ const UI = (() => {
 
   function getListingType() { return currentListingType; }
 
+  /* ── Riftbound card search ── */
+  async function searchRiftboundCard() {
+    const numberEl   = document.getElementById('f-rb-number');
+    const nameEl     = document.getElementById('f-rb-name');
+    const statusEl   = document.getElementById('rb-lookup-status');
+    const previewEl  = document.getElementById('rb-card-preview');
+    const previewImg = document.getElementById('rb-card-preview-img');
+    const number = numberEl?.value.trim().toUpperCase();
+    if (!number) { if(statusEl) statusEl.textContent = 'Enter a card number e.g. UNL-053'; return; }
+    if(statusEl) { statusEl.textContent = 'Searching...'; statusEl.className = 'lookup-status'; }
+    window._currentCardDetails = null; window._currentOPSetName = null;
+    try {
+      const resp = await fetch('/api/riftbound?number=' + encodeURIComponent(number));
+      const data = resp.ok ? await resp.json() : null;
+      if (data && data.name) {
+        if(nameEl) nameEl.value = data.name;
+        window._currentCardDetails = data;
+        window._currentOPSetName   = data.setName;
+        if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
+        if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + ' — click Add to list'; statusEl.className = 'lookup-status ok'; }
+      } else {
+        if(statusEl) { statusEl.textContent = 'Not found. Try: UNL-053, OGN-042, SFD-001'; statusEl.className = 'lookup-status err'; }
+      }
+    } catch(e) {
+      if(statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'lookup-status err'; }
+    }
+  }
+
+  /* ── Yu-Gi-Oh! card search ── */
+  async function searchYugiohCard() {
+    const numberEl   = document.getElementById('f-ygo-number');
+    const nameEl     = document.getElementById('f-ygo-name');
+    const statusEl   = document.getElementById('ygo-lookup-status');
+    const previewEl  = document.getElementById('ygo-card-preview');
+    const previewImg = document.getElementById('ygo-card-preview-img');
+    let number = numberEl?.value.trim().toUpperCase();
+    if (!number) { if(statusEl) statusEl.textContent = 'Enter a card number e.g. LOCR-JP001'; return; }
+    // Auto zero-pad the number part: LOCR-JP1 → LOCR-JP001
+    number = number.replace(/([A-Z]+-[A-Z]+)([0-9]+)$/, function(_, pre, n) { return pre + n.padStart(3,'0'); });
+    if(numberEl) numberEl.value = number;
+    if(statusEl) { statusEl.textContent = 'Searching ' + number + '...'; statusEl.className = 'lookup-status'; }
+    window._currentCardDetails = null; window._currentOPSetName = null;
+    try {
+      const resp = await fetch('/api/yugioh?number=' + encodeURIComponent(number));
+      const data = resp.ok ? await resp.json() : null;
+      if (data && data.name) {
+        if(nameEl) nameEl.value = data.name;
+        window._currentCardDetails = data;
+        window._currentOPSetName   = data.setName;
+        if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
+        if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + (data.setName ? ' · ' + data.setName : '') + ' — click Add'; statusEl.className = 'lookup-status ok'; }
+      } else {
+        if(statusEl) { statusEl.textContent = 'Not found. Format: SETCODE-LANG001 e.g. LOCR-JP001'; statusEl.className = 'lookup-status err'; }
+      }
+    } catch(e) {
+      if(statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'lookup-status err'; }
+    }
+  }
+
   return {
     setGame, toggleCustomPost, setListingType, getListingType, getLotQty,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
     searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard,
+    searchRiftboundCard, searchYugiohCard,
     updatePokemonPreview: () => {}
   };
 })();

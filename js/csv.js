@@ -283,7 +283,6 @@ const CSV = (() => {
 
     // Header — name + number
     parts.push(`<h2>${name || card.number} &nbsp;<small>${card.number}</small></h2>`);
-    if (card.edition) parts.push(`<p><b>Edition:</b> ${card.edition}</p>`);
 
     // Set name
     if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
@@ -350,9 +349,7 @@ const CSV = (() => {
       raw = `${name} ${card.number} ${setName}${rbSuffix}`;
     } else if (card.game === 'yugioh') {
       // Yu-Gi-Oh: "Dark Magician LOCR-JP001 Legacy of Chaos Reprint 1st Edition"
-      const edition = card.edition ? ` ${card.edition}` : '';
-      const ygoSuffix = isPlayset ? ' Playset' : '';
-      raw = `${name} ${card.number} ${setName}${edition}${ygoSuffix}`;
+      raw = `${name} ${card.number} ${setName}${isPlayset ? ' Playset' : ''}`;
     } else if (isPlayset) {
       raw = `${name} ${card.number}${lang} ${setName} Playset`;
     } else {
