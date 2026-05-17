@@ -438,7 +438,7 @@ const UI = (() => {
         if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
         if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + ' — click Add to list'; statusEl.className = 'lookup-status ok'; }
       } else {
-        if(statusEl) { statusEl.textContent = 'Not found. Try: UNL-053, OGN-042, SFD-001'; statusEl.className = 'lookup-status err'; }
+        if(statusEl) { statusEl.textContent = 'Auto-lookup failed — type card name manually below, then Add to list'; statusEl.className = 'lookup-status err'; }
       }
     } catch(e) {
       if(statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'lookup-status err'; }
@@ -469,7 +469,7 @@ const UI = (() => {
         if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
         if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + (data.setName ? ' · ' + data.setName : '') + ' — click Add'; statusEl.className = 'lookup-status ok'; }
       } else {
-        if(statusEl) { statusEl.textContent = 'Not found. Format: SETCODE-LANG001 e.g. LOCR-JP001'; statusEl.className = 'lookup-status err'; }
+        if(statusEl) { statusEl.textContent = 'Auto-lookup failed — type card name manually below, then Add to list'; statusEl.className = 'lookup-status err'; }
       }
     } catch(e) {
       if(statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'lookup-status err'; }
