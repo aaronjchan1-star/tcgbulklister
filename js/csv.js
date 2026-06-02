@@ -282,10 +282,22 @@ const CSV = (() => {
     const parts = [];
 
     // Header — name + number
-    parts.push(`<h2>${name || card.number} &nbsp;<small>${card.number}</small></h2>`);
+    const dispNum = card.game === 'pokemon' ? (card.printedNumber || card.number) : card.number;
+    parts.push(`<h2>${name || card.number} &nbsp;<small>${dispNum}</small></h2>`);
 
-    // Set name
-    if (setName) parts.push(`<p><strong>One Piece TCG</strong> · ${setName}</p>`);
+    // Game + set name
+    const gameNames = { onePiece:'One Piece TCG', pokemon:'Pokémon TCG', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh! TCG' };
+    const gameLabel = gameNames[card.game] || 'TCG';
+    let setLine = setName ? `<strong>${gameLabel}</strong> · ${setName}` : `<strong>${gameLabel}</strong>`;
+    // Pokemon: append variant/finish
+    if (card.game === 'pokemon' && card.variant && card.variant !== 'Normal') {
+      setLine += ` · ${card.variant}`;
+    }
+    parts.push(`<p>${setLine}</p>`);
+    // Pokemon: show rarity if known
+    if (card.game === 'pokemon' && card.rarity) {
+      parts.push(`<p><em>${card.rarity}</em></p>`);
+    }
 
     // Card type line: "Character • Purple • 10 Cost" — clean newlines
     if (d?.typeLine) {
@@ -348,8 +360,13 @@ const CSV = (() => {
       const rbSuffix = isPlayset ? ' Playset' : '';
       raw = `${name} ${card.number} ${setName}${rbSuffix}`;
     } else if (card.game === 'yugioh') {
-      // Yu-Gi-Oh: "Dark Magician LOCR-JP001 Legacy of Chaos Reprint 1st Edition"
       raw = `${name} ${card.number} ${setName}${isPlayset ? ' Playset' : ''}`;
+    } else if (card.game === 'pokemon') {
+      // Pokemon: "Pikachu 025/198 Surging Sparks Reverse Holo"
+      const variant = card.variant && card.variant !== 'Normal' ? ` ${card.variant}` : '';
+      const pkNum   = card.printedNumber || card.number;
+      const psSuffix = isPlayset ? ' Playset' : '';
+      raw = `${name} ${pkNum} ${setName}${variant}${psSuffix}`;
     } else if (isPlayset) {
       raw = `${name} ${card.number}${lang} ${setName} Playset`;
     } else {

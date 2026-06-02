@@ -135,6 +135,24 @@
         </div>
       </div>
 
+      <!-- Pokémon variant selector -->
+      <div class="form-row row-2" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Variant / Finish <span style="color:var(--text-muted); font-weight:400;">— affects price &amp; title</span></label>
+          <select id="f-pk-variant" onchange="UI.onPokemonVariantChange()">
+            <option value="Normal">Normal (non-holo)</option>
+            <option value="Holo">Holo</option>
+            <option value="Reverse Holo">Reverse Holo</option>
+            <option value="Poke Ball">Poké Ball Pattern</option>
+            <option value="Master Ball">Master Ball Pattern</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Market price <span style="color:var(--text-muted); font-weight:400;">— from TCGplayer (AUD est.)</span></label>
+          <input type="text" id="f-pk-marketprice" placeholder="Select a card first" readonly style="background:#1a1a1a; color:var(--text-muted);" />
+        </div>
+      </div>
+
       <!-- Pokémon card picker grid -->
       <div id="pk-card-picker" style="display:none;">
         <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Multiple cards found — click the correct one:</p>

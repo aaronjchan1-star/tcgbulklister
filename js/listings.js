@@ -134,6 +134,15 @@ const Listings = (() => {
       const cond = document.getElementById('f-pk-cond').value;
       const qty  = parseInt(document.getElementById('f-pk-qty').value) || 1;
       const printedNum = `${selected.number}/${selected.set.printedTotal || selected.set.total}`;
+      const variant = UI.getSelectedPokemonVariant ? UI.getSelectedPokemonVariant() : 'Normal';
+
+      // Grab the TCGplayer price for the selected variant (USD)
+      const prices = selected.tcgplayer?.prices || {};
+      let usdPrice = null;
+      if (variant === 'Holo')              usdPrice = prices.holofoil?.market || prices.holofoil?.mid;
+      else if (variant === 'Reverse Holo') usdPrice = prices.reverseHolofoil?.market || prices.reverseHolofoil?.mid;
+      else if (variant === 'Normal')       usdPrice = (prices.normal || prices.holofoil)?.market || (prices.normal || prices.holofoil)?.mid;
+
       card = {
         game:         'pokemon',
         setId:        selected.set.id,
@@ -141,6 +150,9 @@ const Listings = (() => {
         number:       selected.number,
         printedNumber: printedNum,
         name,
+        rarity:       selected.rarity || null,
+        variant,                          // Normal / Holo / Reverse Holo / Poke Ball / Master Ball
+        tcgUsdPrice:  usdPrice || null,   // raw USD market price for reference
         imageUrl:     selected.images?.large || selected.images?.small || '',
         lang:         'English',
         cond,
@@ -287,7 +299,10 @@ const Listings = (() => {
   }
 
   function subLabel(item) {
-    if (item.game === 'pokemon') return item.setName || item.setId;
+    if (item.game === 'pokemon') {
+      const v = item.variant && item.variant !== 'Normal' ? ` · ${item.variant}` : '';
+      return (item.setName || item.setId) + v;
+    }
     const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
     // Only use Limitless set name if it passes validation
     const limitless = isValidSetName(item.limitlessSetName) ? item.limitlessSetName : null;

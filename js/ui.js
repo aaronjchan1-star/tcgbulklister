@@ -244,7 +244,7 @@ const UI = (() => {
       let query = `number:${rawNumber}`;
       if (printedTotal) query += ` set.printedTotal:${printedTotal}`;
 
-      const url  = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&select=id,name,number,set,images&orderBy=-set.releaseDate&pageSize=20`;
+      const url  = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=20`;
       const res  = await fetch(url);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
@@ -254,7 +254,7 @@ const UI = (() => {
         const stripped = String(parseInt(rawNumber, 10));
         let q2 = `number:${stripped}`;
         if (printedTotal) q2 += ` set.printedTotal:${printedTotal}`;
-        const res2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&select=id,name,number,set,images&orderBy=-set.releaseDate&pageSize=20`);
+        const res2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=20`);
         const data2 = await res2.json();
         cards = data2.data || [];
       }
@@ -311,6 +311,8 @@ const UI = (() => {
     statusEl.className   = 'lookup-status ok';
   }
 
+  const USD_TO_AUD = 1.5;  // FX (~1.40) + AU eBay market premium
+
   function selectPokemonCard(card) {
     selectedPokemonCard = card;
     document.getElementById('f-pk-name').value = card.name;
@@ -318,6 +320,59 @@ const UI = (() => {
     const img     = document.getElementById('pk-card-preview-img');
     img.src       = card.images?.small || '';
     preview.style.display = img.src ? 'block' : 'none';
+
+    // Populate variant dropdown based on what TCGplayer prices exist
+    const prices  = card.tcgplayer?.prices || {};
+    const variantSel = document.getElementById('f-pk-variant');
+    if (variantSel) {
+      // Auto-select the best available variant based on rarity + prices
+      const rarity = (card.rarity || '').toLowerCase();
+      let autoVariant = 'Normal';
+      if (prices.holofoil)            autoVariant = 'Holo';
+      else if (prices.reverseHolofoil) autoVariant = 'Reverse Holo';
+      else if (prices.normal)          autoVariant = 'Normal';
+      // Holo rares / V / ex / VMAX default to Holo
+      if (rarity.includes('holo') || rarity.includes('rare') ||
+          /\b(v|vmax|vstar|ex|gx)\b/.test((card.name||'').toLowerCase())) {
+        if (prices.holofoil) autoVariant = 'Holo';
+      }
+      variantSel.value = autoVariant;
+    }
+    onPokemonVariantChange();
+  }
+
+  function onPokemonVariantChange() {
+    const card = selectedPokemonCard;
+    const priceEl  = document.getElementById('f-pk-marketprice');
+    const formPrice = document.getElementById('f-price');
+    if (!card || !priceEl) return;
+
+    const variant = document.getElementById('f-pk-variant')?.value || 'Normal';
+    const prices  = card.tcgplayer?.prices || {};
+
+    // Map variant to TCGplayer price key
+    let priceObj = null;
+    if (variant === 'Holo')              priceObj = prices.holofoil;
+    else if (variant === 'Reverse Holo') priceObj = prices.reverseHolofoil;
+    else if (variant === 'Normal')       priceObj = prices.normal || prices.holofoil;
+    // Poke Ball / Master Ball patterns aren't in the standard API — leave for Claude/manual
+
+    if (priceObj?.market || priceObj?.mid) {
+      const usd = priceObj.market || priceObj.mid;
+      const aud = Math.max(1.00, usd * USD_TO_AUD);
+      priceEl.value = `~$${aud.toFixed(2)} AUD (US $${usd.toFixed(2)})`;
+      if (formPrice && !formPrice.value) formPrice.value = aud.toFixed(2);
+    } else if (variant === 'Master Ball') {
+      priceEl.value = 'Master Ball — rare pattern, use Claude pricing';
+    } else if (variant === 'Poke Ball') {
+      priceEl.value = 'Poké Ball — special pattern, use Claude pricing';
+    } else {
+      priceEl.value = 'No TCGplayer price — use Claude pricing';
+    }
+  }
+
+  function getSelectedPokemonVariant() {
+    return document.getElementById('f-pk-variant')?.value || 'Normal';
   }
 
   function resetPokemonPicker() {
@@ -327,6 +382,10 @@ const UI = (() => {
     document.getElementById('pk-lookup-status').textContent  = '';
     document.getElementById('pk-lookup-status').className    = 'lookup-status';
     document.getElementById('f-pk-name').value               = '';
+    const mp = document.getElementById('f-pk-marketprice');
+    if (mp) mp.value = '';
+    const vs = document.getElementById('f-pk-variant');
+    if (vs) vs.value = 'Normal';
     selectedPokemonCard = null;
   }
 
@@ -479,7 +538,7 @@ const UI = (() => {
   return {
     setGame, toggleCustomPost, setListingType, getListingType, getLotQty,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
-    searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard,
+    searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard, onPokemonVariantChange, getSelectedPokemonVariant,
     searchRiftboundCard, searchYugiohCard,
     updatePokemonPreview: () => {}
   };
