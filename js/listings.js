@@ -213,6 +213,8 @@ const Listings = (() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
       showSaveStatus('List saved');
+      // Push to cloud sync if enabled
+      if (window.Sync?.schedulePush) Sync.schedulePush();
     } catch(e) { console.warn('Save failed:', e); }
   }
 

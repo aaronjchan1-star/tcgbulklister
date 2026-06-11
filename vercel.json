@@ -1,19 +1,39 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/", "destination": "/auth.html" },
-    { "source": "/(.*)", "destination": "/$1" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/",
+      "destination": "/auth.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        }
       ]
     }
   ],
   "functions": {
-    "api/claude.js": { "maxDuration": 30 }
+    "api/claude.js": {
+      "maxDuration": 30
+    },
+    "api/scan.js": {
+      "maxDuration": 30
+    }
   }
 }

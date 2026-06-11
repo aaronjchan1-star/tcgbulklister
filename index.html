@@ -23,12 +23,45 @@
 <body>
 <div class="container">
 
-  <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between;">
+  <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>
       <h1>TCG eBay AU Bulk Lister</h1>
-      <p>One Piece &amp; Pokémon — add cards, open eBay sold searches, export your eBay CSV.</p>
+      <p>Scan, price &amp; export — One Piece, Pokémon, Riftbound, Yu-Gi-Oh!</p>
     </div>
-    <button onclick="logout()" style="font-size:12px; padding:6px 12px; border-radius:7px; background:none; border:1px solid #2e2e2e; color:#666; cursor:pointer; font-family:inherit; white-space:nowrap; margin-top:4px;">Sign out</button>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+      <span class="sync-pill" id="sync-pill" onclick="Sync.openModal()">
+        🔄 <span id="sync-pill-label">Set up sync</span>
+      </span>
+      <button onclick="logout()" style="font-size:12px; padding:6px 12px; border-radius:7px; background:none; border:1px solid #2e2e2e; color:#666; cursor:pointer; font-family:inherit; white-space:nowrap;">Sign out</button>
+    </div>
+  </div>
+  <div id="sync-msg" style="display:none; font-size:12px; color:var(--accent); padding:8px 12px; background:#0f1a2e; border:1px solid #1e3a5f; border-radius:8px; margin-bottom:12px;"></div>
+
+  <!-- Sync modal -->
+  <div id="sync-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; padding:16px;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:24px; max-width:380px; width:100%;">
+      <h2 style="font-size:16px; margin-bottom:8px;">🔄 Cross-device sync</h2>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Use the same sync code on your phone and computer to share your card list. Scan on mobile, export on desktop.
+      </p>
+      <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Sync code</label>
+      <input type="text" id="sync-code-input" placeholder="e.g. K7M2PQ" maxlength="12"
+        style="width:100%; padding:11px; font-size:18px; font-family:monospace; letter-spacing:3px; text-transform:uppercase; text-align:center; margin-bottom:12px;" />
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button onclick="Sync.createNew()" class="btn-clear" style="flex:1; padding:10px;">Generate new code</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button onclick="Sync.pull()" class="btn-bulk" style="flex:1;">⬇ Pull from cloud</button>
+        <button onclick="Sync.push()" class="btn-bulk" style="flex:1;">⬆ Push to cloud</button>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="Sync.saveAndClose()" class="btn-add" style="flex:1; margin-top:0;">Save &amp; close</button>
+        <button onclick="Sync.closeModal()" class="btn-clear" style="padding:10px 16px;">Cancel</button>
+      </div>
+      <p style="font-size:11px; color:var(--text-hint); margin-top:14px; line-height:1.5;">
+        Tip: Generate a code on one device, then enter the same code on the other. Your list pushes automatically as you make changes.
+      </p>
+    </div>
   </div>
 
   <input type="hidden" id="api-key-input" />
@@ -42,9 +75,79 @@
     <div class="stat"><div class="stat-val" id="stat-unpriced">0</div><div class="stat-label">unpriced</div></div>
   </div>
 
+  <!-- AI Scan Section -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <h2 style="margin-bottom:0;">📷 Scan cards</h2>
+      <span style="font-size:11px; color:var(--text-muted);">AI reads card number &amp; name from scans</span>
+    </div>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+      Upload scans or photos of your cards. Claude identifies each card, then auto-fetches data and pricing. Review before exporting.
+    </p>
+
+    <!-- Scan mode toggle -->
+    <div class="scan-mode-toggle">
+      <button class="scan-mode-btn active" id="scan-mode-upload" onclick="Scan.setMode('upload')">📁 Upload files</button>
+      <button class="scan-mode-btn" id="scan-mode-camera" onclick="Scan.setMode('camera')">📸 Camera (mobile)</button>
+    </div>
+
+    <!-- Upload mode -->
+    <div id="scan-dropzone" style="border:2px dashed var(--border-md); border-radius:10px; padding:28px; text-align:center; cursor:pointer; transition:border-color 0.15s;">
+      <input type="file" id="scan-file-input" accept="image/*" multiple style="display:none;" onchange="Scan.handleFiles(this.files)" />
+      <div style="font-size:32px; margin-bottom:8px;">🃏</div>
+      <div style="font-size:14px; color:var(--text); margin-bottom:4px;">Click to upload card scans</div>
+      <div style="font-size:12px; color:var(--text-muted);">or drag &amp; drop — multiple images at once (JPG, PNG)</div>
+    </div>
+
+    <!-- Camera mode (mobile card slinger) -->
+    <div id="scan-camera-mode" style="display:none;">
+      <input type="file" id="scan-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="Scan.handleFiles(this.files)" />
+      <button id="camera-capture-btn" onclick="document.getElementById('scan-camera-input').click()">
+        📸 Capture card
+      </button>
+      <p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:8px;">
+        Point at each card as your slinger flips it. Each capture is scanned, identified &amp; added.
+      </p>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px; justify-content:center;">
+        <label style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="scan-rapid-mode" checked style="width:auto;" />
+          Rapid mode — auto-add high-confidence cards without review
+        </label>
+      </div>
+    </div>
+
+    <div id="scan-options" style="display:none; margin-top:12px;">
+      <div class="form-row row-2" style="margin-bottom:10px;">
+        <div class="field">
+          <label>Default condition for scanned cards</label>
+          <select id="scan-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Auto-price after scan?</label>
+          <select id="scan-autoprice">
+            <option value="yes">Yes — research price automatically</option>
+            <option value="no">No — I'll price later</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="scan-progress-wrap" class="progress-bar-wrap" style="display:none; margin-top:12px;">
+      <div class="progress-bar-fill" id="scan-progress-fill"></div>
+    </div>
+    <div id="scan-status" class="bulk-status" style="display:none;"></div>
+
+    <!-- Scan results preview -->
+    <div id="scan-results" style="display:none; margin-top:14px;"></div>
+  </div>
+
   <!-- Add Card Form -->
   <div class="card">
-    <h2>Add a card</h2>
+    <h2>Add a card manually</h2>
 
     <div class="game-toggle">
       <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
@@ -337,6 +440,8 @@
 <script src="js/csv.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/claude.js"></script>
+<script src="js/scan.js"></script>
+<script src="js/sync.js"></script>
 <script>
 function logout() {
   localStorage.removeItem('tcg_auth_session');
