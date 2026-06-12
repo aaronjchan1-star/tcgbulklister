@@ -61,15 +61,31 @@ const CSV = (() => {
   }
 
   function getSetName(card) {
-    if (card.game === 'onePiece') {
-      // Riftbound sets
-      const rb = { OGN:'Origins', OGS:'Origins Overnumbered', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered' };
-      if (rb[setCode]) return rb[setCode];
+    const setCode = (card.number?.split('-')[0] || '').toUpperCase();
 
-      const n = { EB01:'Memorial Collection',EB02:'Anime 25th Collection',EB03:'Heroines Edition',EB04:"Adventure on Kami's Island",OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',OP11:'A Fist of Divine Speed',OP12:'Legacy of the Master',OP13:'Carrying on his Will',OP14:"The Azure Sea's Seven",OP15:"Adventure on Kami's Island",PRB01:'The Best Vol.1',PRB02:'The Best Vol.2',ST01:'Straw Hat Crew',ST02:'Worst Generation',ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter' };
-      return n[card.number.split('-')[0].toUpperCase()] || getSetId(card);
+    if (card.game === 'riftbound') {
+      const rb = { OGN:'Origins', OGS:'Origins Overnumbered', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered' };
+      return card.limitlessSetName || rb[setCode] || setCode;
     }
-    return card.setName || card.setId;
+
+    if (card.game === 'yugioh') {
+      return card.limitlessSetName || setCode;
+    }
+
+    if (card.game === 'pokemon') {
+      return card.setName || card.setId || '';
+    }
+
+    // One Piece
+    if (isValidSetName(card.limitlessSetName)) return card.limitlessSetName;
+    const n = { EB01:'Memorial Collection',EB02:'Anime 25th Collection',EB03:'Heroines Edition',EB04:"Adventure on Kami's Island",OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',OP11:'A Fist of Divine Speed',OP12:'Legacy of the Master',OP13:'Carrying on his Will',OP14:"The Azure Sea's Seven",OP15:"Adventure on Kami's Island",PRB01:'The Best Vol.1',PRB02:'The Best Vol.2',ST01:'Straw Hat Crew',ST02:'Worst Generation',ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter' };
+    return n[setCode] || setCode;
+  }
+
+  function isValidSetName(name) {
+    if (!name || name.length < 3) return false;
+    const bad = ['deck','latest','card','limitless','result','filter','one piece tcg'];
+    return !bad.some(w => name.toLowerCase().includes(w));
   }
 
   /* ─── Variation name (shown in dropdown) ─── */
