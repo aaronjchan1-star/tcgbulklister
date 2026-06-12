@@ -65,11 +65,11 @@ const CSV = (() => {
 
     if (card.game === 'riftbound') {
       const rb = { OGN:'Origins', OGS:'Origins Overnumbered', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered' };
-      return card.limitlessSetName || rb[setCode] || setCode;
+      return card.limitlessSetName || rb[setCode] || '';
     }
 
     if (card.game === 'yugioh') {
-      return card.limitlessSetName || setCode;
+      return card.limitlessSetName || '';
     }
 
     if (card.game === 'pokemon') {
@@ -78,8 +78,8 @@ const CSV = (() => {
 
     // One Piece
     if (isValidSetName(card.limitlessSetName)) return card.limitlessSetName;
-    const n = { EB01:'Memorial Collection',EB02:'Anime 25th Collection',EB03:'Heroines Edition',EB04:"Adventure on Kami's Island",OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',OP11:'A Fist of Divine Speed',OP12:'Legacy of the Master',OP13:'Carrying on his Will',OP14:"The Azure Sea's Seven",OP15:"Adventure on Kami's Island",PRB01:'The Best Vol.1',PRB02:'The Best Vol.2',ST01:'Straw Hat Crew',ST02:'Worst Generation',ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter' };
-    return n[setCode] || setCode;
+    const n = { EB01:'Memorial Collection',EB02:'Anime 25th Collection',EB03:'Heroines Edition',EB04:'Egghead Crisis',OP01:'Romance Dawn',OP02:'Paramount War',OP03:'Pillars of Strength',OP04:'Kingdoms of Intrigue',OP05:'Awakening of the New Era',OP06:'Wings of the Captain',OP07:'500 Years in the Future',OP08:'Two Legends',OP09:'The Four Emperors',OP10:'Royal Blood',OP11:'A Fist of Divine Speed',OP12:'Legacy of the Master',OP13:'Carrying on his Will',OP14:"The Azure Sea's Seven",OP15:"Adventure on Kami's Island",OP16:'The Time of Battle',PRB01:'The Best Vol.1',PRB02:'The Best Vol.2',ST01:'Straw Hat Crew',ST02:'Worst Generation',ST03:'The Seven Warlords',ST04:'Animal Kingdom Pirates',ST05:'Worst Generation 2',ST06:'Absolute Justice',ST07:'Big Mom Pirates',ST08:'Monkey D. Luffy',ST09:'Yamato',ST10:'UTA',ST11:'Uta',ST12:'Zoro & Sanji',ST13:'The Three Captains',ST14:'3D2Y Luffy',ST15:'Red-Haired Pirates',ST16:'Marine',ST17:'Dark Forces',ST18:'World Government',ST19:'Final Chapter',ST20:'Charlotte Family',ST21:'Gear 5',ST28:'Yamato' };
+    return n[setCode] || '';
   }
 
   function isValidSetName(name) {
@@ -372,22 +372,25 @@ const CSV = (() => {
     const lang      = card.lang === 'Japanese' ? ' Japanese' : '';
     let raw;
 
+    const playsetSuffix = isPlayset ? ' Playset' : '';
+    // setPart is empty if we couldn't resolve a real set name (avoids "OP16-098 OP16")
+    const setPart = setName ? ` ${setName}` : '';
+
     if (card.game === 'riftbound') {
-      const rbSuffix = isPlayset ? ' Playset' : '';
-      raw = `${name} ${card.number} ${setName}${rbSuffix}`;
+      raw = `${name} ${card.number}${setPart}${playsetSuffix}`;
     } else if (card.game === 'yugioh') {
-      raw = `${name} ${card.number} ${setName}${isPlayset ? ' Playset' : ''}`;
+      raw = `${name} ${card.number}${setPart}${playsetSuffix}`;
     } else if (card.game === 'pokemon') {
       // Pokemon: "Pikachu 025/198 Surging Sparks Reverse Holo"
       const variant = card.variant && card.variant !== 'Normal' ? ` ${card.variant}` : '';
       const pkNum   = card.printedNumber || card.number;
-      const psSuffix = isPlayset ? ' Playset' : '';
-      raw = `${name} ${pkNum} ${setName}${variant}${psSuffix}`;
-    } else if (isPlayset) {
-      raw = `${name} ${card.number}${lang} ${setName} Playset`;
+      raw = `${name} ${pkNum}${setPart}${variant}${playsetSuffix}`;
     } else {
-      raw = `${name} ${card.number}${lang} ${setName}`;
+      // One Piece
+      raw = `${name} ${card.number}${lang}${setPart}${playsetSuffix}`;
     }
+    // Collapse any accidental double spaces
+    raw = raw.replace(/\s{2,}/g, ' ').trim();
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
     const imgUrl  = getCardImageUrl(card);
     const post    = card.post || 0;
