@@ -35,39 +35,82 @@ const Market = (() => {
     return { label: 'ok', color: 'var(--green)', text: 'In range' };
   }
 
-  async function bulkCheck() {
+  // How many single cards a listing contains (playset = 4, lot = qty, single = 1)
+  function unitsInListing(card) {
+    if (card.listingType === 'playset') return 4;
+    return card.qty || 1;
+  }
+
+  // Build the suggested listing price from a per-card sold estimate.
+  // Multi-card lots/playsets multiply by units, with a small bundle discount
+  // (buyers expect a slight saving when buying several at once).
+  function suggestedPrice(perCardSold, units) {
+    if (!perCardSold) return null;
+    let price = perCardSold * units;
+    if (units >= 4)      price *= 0.92;  // playset / 4x — ~8% bundle saving
+    else if (units === 3) price *= 0.95;
+    else if (units === 2) price *= 0.97;
+    return Math.max(1.00, Math.round(price * 100) / 100);
+  }
+
+  async function bulkCheck(autofill) {
     const btn      = document.getElementById('market-check-btn');
     const statusEl = document.getElementById('market-status');
     const items    = Listings.getItems();
 
-    const priced = items.map((c, i) => ({ card: c, index: i })).filter(({ card }) => card.price > 0);
-    if (!priced.length) {
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Set some prices first, then check them against the market.'; }
+    // When autofilling, check ALL cards (even unpriced). Otherwise only priced ones.
+    const targets = autofill
+      ? items.map((c, i) => ({ card: c, index: i }))
+      : items.map((c, i) => ({ card: c, index: i })).filter(({ card }) => card.price > 0);
+
+    if (!targets.length) {
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = autofill ? 'Add some cards first.' : 'Set some prices first, then check them against the market.'; }
       return;
     }
 
     if (btn) btn.disabled = true;
+    const fillBtn = document.getElementById('market-autofill-btn');
+    if (fillBtn) fillBtn.disabled = true;
     if (statusEl) statusEl.style.display = 'block';
 
-    let checked = 0, notConfigured = false, inRange = 0, off = 0;
+    let checked = 0, notConfigured = false, inRange = 0, off = 0, filled = 0, noComps = 0;
 
-    for (let i = 0; i < priced.length; i++) {
-      const { card, index } = priced[i];
-      if (statusEl) statusEl.textContent = `Checking ${i + 1}/${priced.length}: ${card.name || card.number}...`;
+    for (let i = 0; i < targets.length; i++) {
+      const { card, index } = targets[i];
+      if (statusEl) statusEl.textContent = `Checking ${i + 1}/${targets.length}: ${card.name || card.number}...`;
       try {
         const m = await fetchMarket(card);
         if (m.configured === false) { notConfigured = true; break; }
         if (m.found > 0) {
-          const v = verdict(card.price, m.soldEstimate);
+          const units      = unitsInListing(card);
+          const suggested  = suggestedPrice(m.soldEstimate, units);
+
+          if (autofill && suggested) {
+            Listings.updatePrice(index, suggested, {
+              source:     'ebay-market',
+              confidence: m.found >= 5 ? 'high' : m.found >= 2 ? 'medium' : 'low',
+              notes:      `eBay AU: ${m.found} listings, $${m.soldEstimate}/card${units > 1 ? ` × ${units}` : ''}`
+            });
+            filled++;
+          }
+
+          // verdict compares the (possibly new) price against the bundle's expected value
+          const compareTo  = autofill ? suggested : card.price;
+          const expectTotal = (m.soldEstimate || 0) * units;
+          const v = verdict(compareTo, expectTotal);
+
           Listings.setMarketCheck(index, {
-            activeMedian: m.activeMedian,
-            soldEstimate: m.soldEstimate,
-            found:        m.found,
-            verdict:      v
+            activeMedian:  m.activeMedian,
+            soldEstimate:  m.soldEstimate,      // per single card
+            perListing:    suggested,           // qty-adjusted listing price
+            units,
+            found:         m.found,
+            verdict:       v
           });
           checked++;
           if (v?.label === 'ok') inRange++; else off++;
         } else {
+          noComps++;
           Listings.setMarketCheck(index, { found: 0 });
         }
       } catch(e) {
@@ -77,13 +120,19 @@ const Market = (() => {
     }
 
     if (btn) btn.disabled = false;
+    if (fillBtn) fillBtn.disabled = false;
 
     if (notConfigured) {
       if (statusEl) statusEl.innerHTML = '⚠️ eBay market check not set up. Add <code>EBAY_APP_ID</code> &amp; <code>EBAY_CERT_ID</code> env vars on Vercel (see EBAY_MARKET_SETUP.md).';
       return;
     }
-    if (statusEl) statusEl.innerHTML = `Checked <strong>${checked}</strong> card${checked !== 1 ? 's' : ''} — <span style="color:var(--green)">${inRange} in range</span>, <span style="color:var(--amber)">${off} off market</span>. See indicators next to each price.`;
+
+    if (autofill) {
+      if (statusEl) statusEl.innerHTML = `Auto-filled <strong>${filled}</strong> price${filled !== 1 ? 's' : ''} from eBay AU market${noComps ? `, <span style="color:var(--text-muted)">${noComps} had no comps</span>` : ''}. Lots &amp; playsets were multiplied by quantity.`;
+    } else {
+      if (statusEl) statusEl.innerHTML = `Checked <strong>${checked}</strong> card${checked !== 1 ? 's' : ''} — <span style="color:var(--green)">${inRange} in range</span>, <span style="color:var(--amber)">${off} off market</span>. See indicators next to each price.`;
+    }
   }
 
-  return { bulkCheck, verdict };
+  return { bulkCheck, verdict, suggestedPrice, unitsInListing };
 })();

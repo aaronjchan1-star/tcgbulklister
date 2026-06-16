@@ -200,7 +200,7 @@ const Listings = (() => {
       items[index].priceHigh     = priceData.high;
       items[index].priceConf     = priceData.confidence;
       items[index].priceNotes    = priceData.notes;
-      items[index].priceSource   = 'claude';
+      items[index].priceSource   = priceData.source || 'claude';
     }
     save();
     render();
@@ -370,8 +370,15 @@ const Listings = (() => {
       if (item.marketCheck.found === 0) {
         marketTag = `<span title="No active eBay AU listings found" style="font-size:10px;color:var(--text-muted);">no comps</span>`;
       } else if (item.marketCheck.verdict) {
-        const v = item.marketCheck.verdict;
-        marketTag = `<span title="eBay AU: ${item.marketCheck.found} listings, median $${item.marketCheck.activeMedian}, est. sold $${item.marketCheck.soldEstimate}" style="font-size:10px;color:${v.color};white-space:nowrap;cursor:help;">● ${v.text} ($${item.marketCheck.soldEstimate})</span>`;
+        const v  = item.marketCheck.verdict;
+        const mc = item.marketCheck;
+        const units = mc.units || 1;
+        // For multi-card listings show the per-listing suggested price + the per-card basis
+        const shownPrice = units > 1 && mc.perListing ? mc.perListing : mc.soldEstimate;
+        const tip = units > 1
+          ? `eBay AU: ${mc.found} listings, $${mc.soldEstimate}/card × ${units} = $${mc.perListing}`
+          : `eBay AU: ${mc.found} listings, median $${mc.activeMedian}, est. sold $${mc.soldEstimate}`;
+        marketTag = `<span title="${tip}" style="font-size:10px;color:${v.color};white-space:nowrap;cursor:help;">● ${v.text} ($${shownPrice})</span>`;
       }
     }
     return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">

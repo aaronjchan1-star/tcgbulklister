@@ -430,14 +430,20 @@
           <span>📊 eBay AU market check</span>
           <span style="font-size:11px; color:var(--text-muted);">Compares your prices to live eBay AU listings</span>
         </div>
-        <button id="market-check-btn" class="btn-claude" onclick="Market.bulkCheck()">
-          Check my prices against eBay market
-        </button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="market-autofill-btn" class="btn-claude" style="flex:1; background:#1a2e1a; color:#4ade80; border-color:#1e4a1e;" onclick="Market.bulkCheck(true)">
+            ⬇ Auto-fill all prices from eBay market
+          </button>
+          <button id="market-check-btn" class="btn-claude" style="flex:1;" onclick="Market.bulkCheck(false)">
+            Check existing prices only
+          </button>
+        </div>
         <div class="bulk-status" id="market-status" style="display:none;"></div>
         <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">
-          Shows an indicator next to each price: <span style="color:var(--green)">● In range</span>,
+          Auto-fill sets each price from live eBay AU listings. Lots (2x/3x/4x) and playsets are multiplied by quantity with a small bundle discount.
+          Indicators: <span style="color:var(--green)">● In range</span>,
           <span style="color:var(--amber)">● Above market</span>,
-          <span style="color:#60a5fa">● Below market</span>. Estimates sold price from active listings.
+          <span style="color:#60a5fa">● Below market</span>.
         </div>
       </div>
 
