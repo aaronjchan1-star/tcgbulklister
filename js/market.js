@@ -17,12 +17,15 @@ const Market = (() => {
   function cleanName(n) { return (n || '').replace(/\s*\(.*$/, '').trim(); }
 
   async function fetchMarket(card) {
-    const kw  = encodeURIComponent(buildKeywords(card));
-    const cat = CATEGORY[card.game] || '';
-    const resp = await fetch(`/api/ebaymarket?keywords=${kw}&categoryId=${cat}`);
+    // Smart pricing: eBay returns listings, Claude filters to exact card+variant
+    const resp = await fetch('/api/smartprice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card })
+    });
     if (!resp.ok) {
       const e = await resp.json().catch(() => ({}));
-      throw new Error(e.error || `Market check failed ${resp.status}`);
+      throw new Error(e.error || `Pricing failed ${resp.status}`);
     }
     return resp.json();
   }
@@ -81,31 +84,32 @@ const Market = (() => {
       try {
         const m = await fetchMarket(card);
         if (m.configured === false) { notConfigured = true; break; }
-        if (m.found > 0) {
+        const perCard = m.perCardPrice;
+        if (m.found > 0 && perCard) {
           const units      = unitsInListing(card);
-          const suggested  = suggestedPrice(m.soldEstimate, units);
+          const suggested  = suggestedPrice(perCard, units);
 
           if (autofill && suggested) {
             Listings.updatePrice(index, suggested, {
-              source:     'ebay-market',
-              confidence: m.found >= 5 ? 'high' : m.found >= 2 ? 'medium' : 'low',
-              notes:      `eBay AU: ${m.found} listings, $${m.soldEstimate}/card${units > 1 ? ` × ${units}` : ''}`
+              source:     'ebay+claude',
+              confidence: m.confidence || (m.matches >= 4 ? 'high' : m.matches >= 2 ? 'medium' : 'low'),
+              notes:      `${m.matches} eBay match${m.matches !== 1 ? 'es' : ''}: $${perCard}/card${units > 1 ? ` × ${units}` : ''}. ${m.notes || ''}`
             });
             filled++;
           }
 
-          // verdict compares the (possibly new) price against the bundle's expected value
-          const compareTo  = autofill ? suggested : card.price;
-          const expectTotal = (m.soldEstimate || 0) * units;
+          const compareTo   = autofill ? suggested : card.price;
+          const expectTotal = perCard * units;
           const v = verdict(compareTo, expectTotal);
 
           Listings.setMarketCheck(index, {
-            activeMedian:  m.activeMedian,
-            soldEstimate:  m.soldEstimate,      // per single card
-            perListing:    suggested,           // qty-adjusted listing price
+            soldEstimate: perCard,        // per single card (Claude-filtered)
+            perListing:   suggested,      // qty-adjusted listing price
+            matches:      m.matches,
+            confidence:   m.confidence,
             units,
-            found:         m.found,
-            verdict:       v
+            found:        m.found,
+            verdict:      v
           });
           checked++;
           if (v?.label === 'ok') inRange++; else off++;

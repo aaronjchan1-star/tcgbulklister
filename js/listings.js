@@ -373,11 +373,11 @@ const Listings = (() => {
         const v  = item.marketCheck.verdict;
         const mc = item.marketCheck;
         const units = mc.units || 1;
-        // For multi-card listings show the per-listing suggested price + the per-card basis
         const shownPrice = units > 1 && mc.perListing ? mc.perListing : mc.soldEstimate;
+        const matchInfo = mc.matches != null ? `${mc.matches} matched listing${mc.matches !== 1 ? 's' : ''}` : `${mc.found} listings`;
         const tip = units > 1
-          ? `eBay AU: ${mc.found} listings, $${mc.soldEstimate}/card × ${units} = $${mc.perListing}`
-          : `eBay AU: ${mc.found} listings, median $${mc.activeMedian}, est. sold $${mc.soldEstimate}`;
+          ? `eBay AU (${matchInfo}): $${mc.soldEstimate}/card × ${units} = $${mc.perListing}`
+          : `eBay AU (${matchInfo}): $${mc.soldEstimate}/card`;
         marketTag = `<span title="${tip}" style="font-size:10px;color:${v.color};white-space:nowrap;cursor:help;">● ${v.text} ($${shownPrice})</span>`;
       }
     }
