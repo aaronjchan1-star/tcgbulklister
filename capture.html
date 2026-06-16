@@ -2,26 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>TCG Lister — Phone Scanner</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e8e8e8; height: 100vh; overflow: hidden; }
-    #app { display: flex; flex-direction: column; height: 100vh; }
-    header { padding: 12px 16px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 15px; font-weight: 700; }
+    html, body { height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e8e8e8; overflow: hidden; }
+
+    /* Fill the ACTUAL visible viewport. dvh handles mobile browser chrome. */
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+    header { flex: 0 0 auto; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); background: #1a1a1a; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 14px; font-weight: 700; }
     #status { font-size: 12px; color: #4ade80; }
     #status.off { color: #f59e0b; }
-    #video-wrap { flex: 1; position: relative; background: #000; overflow: hidden; }
-    video { width: 100%; height: 100%; object-fit: cover; }
-    #frame-guide { position: absolute; inset: 8% 12%; border: 2px dashed rgba(255,255,255,0.4); border-radius: 14px; pointer-events: none; }
-    #count-badge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 99px; }
-    #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
-    footer { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); background: #1a1a1a; border-top: 1px solid #2a2a2a; }
-    #capture-btn { width: 100%; padding: 18px; font-size: 17px; font-weight: 700; border-radius: 14px; background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 10px; }
-    #capture-btn:active { filter: brightness(0.9); }
-    #capture-btn:disabled { opacity: 0.5; }
-    .hint { text-align: center; font-size: 12px; color: #666; margin-top: 10px; }
+
+    /* Camera fills all remaining space between header and footer */
+    #video-wrap { flex: 1 1 auto; position: relative; background: #000; overflow: hidden; min-height: 0; }
+    video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    #frame-guide { position: absolute; inset: 10% 8%; border: 3px solid rgba(74,222,128,0.7); border-radius: 14px; pointer-events: none; box-shadow: 0 0 0 100vmax rgba(0,0,0,0.25); }
+    #frame-guide::after { content: 'Fit ONE card inside'; position: absolute; top: -24px; left: 0; right: 0; text-align: center; font-size: 11px; color: rgba(255,255,255,0.7); }
+    #count-badge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.65); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 99px; z-index: 2; }
+    #last-card { position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 8px 12px; border-radius: 10px; z-index: 2; display: none; }
+    #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 3; }
+
+    /* Footer always pinned, always visible */
+    footer { flex: 0 0 auto; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: #1a1a1a; border-top: 1px solid #2a2a2a; }
+    #capture-btn { width: 100%; padding: 20px; font-size: 18px; font-weight: 700; border-radius: 14px; background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 10px; touch-action: manipulation; }
+    #capture-btn:disabled { opacity: 0.55; }
+    .hint { text-align: center; font-size: 11px; color: #666; margin-top: 8px; }
+
     #setup { padding: 40px 24px; text-align: center; }
     #setup input { width: 100%; padding: 14px; font-size: 22px; font-family: monospace; letter-spacing: 4px; text-align: center; text-transform: uppercase; background: #242424; border: 1px solid #363636; border-radius: 10px; color: #e8e8e8; margin: 16px 0; outline: none; }
     #setup button { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px; background: #e8e8e8; color: #0f0f0f; border: none; cursor: pointer; }
@@ -34,28 +44,27 @@
   <div id="setup" style="display:none;">
     <h1 style="font-size:18px; margin-bottom:8px;">📷 Phone Scanner</h1>
     <p style="font-size:13px; color:#888;">Enter the 6-character code shown on your computer.</p>
-    <input type="text" id="session-input" placeholder="ABC123" maxlength="12" />
+    <input type="text" id="session-input" placeholder="ABC123" maxlength="12" autocapitalize="characters" />
     <button onclick="start()">Connect</button>
     <div class="err" id="setup-err"></div>
   </div>
 
   <!-- Camera -->
-  <div id="camera" style="display:none; flex:1; flex-direction:column;">
-    <header>
-      <h1>📷 Scanning</h1>
-      <span id="status" class="off">Connecting…</span>
-    </header>
-    <div id="video-wrap">
-      <video id="video" autoplay playsinline muted></video>
-      <div id="frame-guide"></div>
-      <div id="count-badge">0 sent</div>
-      <div id="flash"></div>
-    </div>
-    <footer>
-      <button id="capture-btn" onclick="capture()">📸 Capture card</button>
-      <p class="hint">Line the card up in the frame and tap. It appears on your computer instantly.</p>
-    </footer>
+  <header id="cam-header" style="display:none;">
+    <h1>📷 Scanning</h1>
+    <span id="status" class="off">Connecting…</span>
+  </header>
+  <div id="video-wrap" style="display:none;">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="frame-guide"></div>
+    <div id="count-badge">0 sent</div>
+    <div id="last-card"></div>
+    <div id="flash"></div>
   </div>
+  <footer id="cam-footer" style="display:none;">
+    <button id="capture-btn" onclick="capture()">📸 Capture card</button>
+    <p class="hint">Fit one card in the green frame, hold steady, tap. Wait for the ✓ before the next.</p>
+  </footer>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
@@ -64,15 +73,15 @@
 let session = '';
 let sent = 0;
 let stream = null;
+let busy = false;
+const COOLDOWN_MS = 1200;  // prevents accidental double-captures
 
-function getParam(name) {
-  return new URLSearchParams(location.search).get(name);
-}
+function getParam(name) { return new URLSearchParams(location.search).get(name); }
 
-async function init() {
+function init() {
   const s = getParam('s') || getParam('session');
-  if (s) { document.getElementById('session-input') && (0); session = s.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12); start(); }
-  else { document.getElementById('setup').style.display = 'block'; document.getElementById('app').style.display='block'; }
+  if (s) { session = s.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12); start(); }
+  else { document.getElementById('setup').style.display = 'block'; }
 }
 
 async function start() {
@@ -82,21 +91,24 @@ async function start() {
     session = v;
   }
   document.getElementById('setup').style.display = 'none';
-  document.getElementById('camera').style.display = 'flex';
+  document.getElementById('cam-header').style.display = 'flex';
+  document.getElementById('video-wrap').style.display = 'block';
+  document.getElementById('cam-footer').style.display = 'block';
 
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false
     });
-    document.getElementById('video').srcObject = stream;
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    await video.play().catch(()=>{});
   } catch(e) {
     document.getElementById('status').textContent = 'Camera blocked';
-    alert('Could not access the camera. Please allow camera access and reload.');
+    alert('Could not access the camera. Allow camera access in your browser settings and reload this page.');
     return;
   }
 
-  // Heartbeat so desktop knows we connected
   ping();
   setInterval(ping, 20000);
 }
@@ -113,26 +125,31 @@ async function ping() {
 }
 
 async function capture() {
+  if (busy) return;
   const video = document.getElementById('video');
   if (!video.videoWidth) return;
   const btn = document.getElementById('capture-btn');
+  busy = true;
+  btn.disabled = true;
 
-  // Flash effect
+  // Flash
   const flash = document.getElementById('flash');
   flash.style.opacity = '0.8';
-  setTimeout(() => flash.style.opacity = '0', 150);
+  setTimeout(() => flash.style.opacity = '0', 130);
 
-  // Grab frame, downscale to max 1024px
+  // Crop to the framing guide region so stray cards outside the frame aren't captured
   const canvas = document.getElementById('canvas');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  // guide is inset 10% top/bottom, 8% left/right
+  const cropX = vw * 0.08, cropY = vh * 0.10;
+  const cropW = vw * 0.84, cropH = vh * 0.80;
   const maxDim = 1024;
-  let w = video.videoWidth, h = video.videoHeight;
-  if (w > maxDim || h > maxDim) { const sc = maxDim / Math.max(w, h); w = Math.round(w*sc); h = Math.round(h*sc); }
-  canvas.width = w; canvas.height = h;
-  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  const base64 = dataUrl.split(',')[1];
+  let outW = cropW, outH = cropH;
+  if (outW > maxDim || outH > maxDim) { const sc = maxDim / Math.max(outW, outH); outW = Math.round(outW*sc); outH = Math.round(outH*sc); }
+  canvas.width = outW; canvas.height = outH;
+  canvas.getContext('2d').drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+  const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
-  btn.disabled = true;
   btn.textContent = '⏳ Sending…';
   try {
     const resp = await fetch('/api/relay', {
@@ -140,16 +157,17 @@ async function capture() {
       body: JSON.stringify({ session, image: base64, mediaType: 'image/jpeg' })
     });
     const data = await resp.json();
-    if (data.configured === false) throw new Error('Sync not set up on server');
+    if (data.configured === false) throw new Error('Sync store not set up');
     if (!resp.ok) throw new Error(data.error || 'Upload failed');
     sent++;
     document.getElementById('count-badge').textContent = sent + ' sent';
     btn.textContent = '✓ Sent!';
-    setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; }, 500);
+    if (navigator.vibrate) navigator.vibrate(40);
   } catch(e) {
     btn.textContent = '⚠ ' + e.message;
-    setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; }, 1800);
   }
+  // Cooldown before the button is usable again
+  setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; busy = false; }, COOLDOWN_MS);
 }
 
 init();

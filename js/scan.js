@@ -109,6 +109,9 @@ const Scan = (() => {
     }
   }
 
+  const recentScans = {};  // number → timestamp, for duplicate suppression
+  const DUPLICATE_WINDOW_MS = 6000;
+
   async function processRelayed(images) {
     phoneProcessing = true;
     const autoPrice = document.getElementById('scan-autoprice')?.value === 'yes';
@@ -120,22 +123,32 @@ const Scan = (() => {
       try {
         const ident = await identifyCard(img.image, img.mediaType || 'image/jpeg');
         if (!ident.number || ident.error) {
-          setPhoneStatus(`Card ${phoneReceived}: couldn't read it — try again`, 'off');
+          setPhoneStatus(`Couldn't read that card — reposition and capture again`, 'off');
           continue;
         }
+
+        // Duplicate suppression: same card number captured seconds ago = skip
+        const key = `${ident.game}:${(ident.number || '').toUpperCase()}`;
+        const now = Date.now();
+        if (recentScans[key] && (now - recentScans[key]) < DUPLICATE_WINDOW_MS) {
+          setPhoneStatus(`⏭ Skipped duplicate of ${ident.number} (just scanned)`, 'busy');
+          recentScans[key] = now;
+          continue;
+        }
+        recentScans[key] = now;
+
         const enriched = await enrichCard(ident);
-        // Rapid: high/medium confidence auto-add, low confidence queues for review
         if (enriched.scanConfidence !== 'low') {
           Listings.addAll([enriched]);
           if (autoPrice && window.ClaudeAI?.bulkPrice) setTimeout(() => ClaudeAI.bulkPrice(), 400);
-          setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — keep going!`, 'ok');
+          setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — next card!`, 'ok');
         } else {
           scannedCards.push(enriched);
           renderResults(autoPrice);
-          setPhoneStatus(`Added ${enriched.name || enriched.number} to review (low confidence)`, 'busy');
+          setPhoneStatus(`Added ${enriched.name || enriched.number} to review (low confidence — verify it)`, 'busy');
         }
       } catch(e) {
-        setPhoneStatus(`Card ${phoneReceived} failed: ${e.message}`, 'off');
+        setPhoneStatus(`Scan failed: ${e.message}`, 'off');
       }
     }
     phoneProcessing = false;
