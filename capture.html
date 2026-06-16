@@ -62,12 +62,20 @@
     <div id="flash"></div>
   </div>
   <footer id="cam-footer" style="display:none;">
+    <div id="auto-row" onclick="toggleAuto()" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px; cursor:pointer; user-select:none;">
+      <span style="font-size:14px; font-weight:600;">🔄 Auto-scan</span>
+      <span id="auto-switch" style="width:46px; height:26px; border-radius:99px; background:#363636; position:relative; transition:background 0.2s;">
+        <span id="auto-knob" style="position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left 0.2s;"></span>
+      </span>
+      <span id="auto-label" style="font-size:13px; color:#888;">off</span>
+    </div>
     <button id="capture-btn" onclick="capture()">📸 Capture card</button>
-    <p class="hint">Fit one card in the green frame, hold steady, tap. Wait for the ✓ before the next.</p>
+    <p class="hint" id="cam-hint">Fit one card in the green frame, hold steady, tap. Wait for the ✓ before the next.</p>
   </footer>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
+<canvas id="detect-canvas" width="32" height="32" style="display:none;"></canvas>
 
 <script>
 let session = '';
@@ -124,6 +132,94 @@ async function ping() {
   }
 }
 
+// ─────────────── Auto-scan (card slinger) ───────────────
+let autoScan = false;
+let prevFp = null;            // previous frame fingerprint
+let lastCapturedFp = null;    // fingerprint of last captured card
+let stableFrames = 0;
+let autoCooldownUntil = 0;
+let autoLoopRunning = false;
+
+// Tuning — frame fingerprint is 32x32 grayscale (mean abs diff 0-255)
+const STABLE_MAX   = 6;   // below this = frame is steady (card settled)
+const NOVELTY_MIN  = 9;   // above this vs last capture = a different card
+const VARIANCE_MIN = 18;  // above this = a detailed card (not a blank surface)
+const STABLE_NEEDED = 2;  // consecutive steady frames before capturing
+const AUTO_COOLDOWN_MS = 1600;
+
+function toggleAuto() {
+  autoScan = !autoScan;
+  const sw = document.getElementById('auto-switch');
+  const knob = document.getElementById('auto-knob');
+  const label = document.getElementById('auto-label');
+  const btn = document.getElementById('capture-btn');
+  const hint = document.getElementById('cam-hint');
+  if (autoScan) {
+    sw.style.background = '#22c55e';
+    knob.style.left = '23px';
+    label.textContent = 'on'; label.style.color = '#4ade80';
+    btn.textContent = '⏸ Auto-scanning — tap to capture now';
+    hint.textContent = 'Feed cards with your slinger. Each card is captured automatically once it settles.';
+    if (!autoLoopRunning) { autoLoopRunning = true; autoLoop(); }
+  } else {
+    sw.style.background = '#363636';
+    knob.style.left = '3px';
+    label.textContent = 'off'; label.style.color = '#888';
+    btn.textContent = '📸 Capture card';
+    hint.textContent = 'Fit one card in the green frame, hold steady, tap. Wait for the ✓ before the next.';
+  }
+}
+
+function fingerprint(video) {
+  const c = document.getElementById('detect-canvas');
+  const ctx = c.getContext('2d');
+  // Sample the center frame region (matches the framing guide)
+  const vw = video.videoWidth, vh = video.videoHeight;
+  ctx.drawImage(video, vw*0.08, vh*0.10, vw*0.84, vh*0.80, 0, 0, 32, 32);
+  const d = ctx.getImageData(0, 0, 32, 32).data;
+  const gray = new Array(1024);
+  let sum = 0;
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const g = (d[i] + d[i+1] + d[i+2]) / 3;
+    gray[j] = g; sum += g;
+  }
+  const mean = sum / 1024;
+  let varSum = 0;
+  for (let j = 0; j < 1024; j++) varSum += Math.abs(gray[j] - mean);
+  gray.variance = varSum / 1024;
+  return gray;
+}
+
+function frameDiff(a, b) {
+  if (!a || !b) return 999;
+  let s = 0;
+  for (let i = 0; i < 1024; i++) s += Math.abs(a[i] - b[i]);
+  return s / 1024;
+}
+
+async function autoLoop() {
+  if (!autoScan) { autoLoopRunning = false; return; }
+  const video = document.getElementById('video');
+  if (video.videoWidth && !busy) {
+    const fp = fingerprint(video);
+    const movement = frameDiff(fp, prevFp);
+    const novelty  = frameDiff(fp, lastCapturedFp);
+    prevFp = fp;
+
+    if (movement < STABLE_MAX) stableFrames++; else stableFrames = 0;
+
+    const now = Date.now();
+    const hasCard = fp.variance > VARIANCE_MIN;
+    if (now > autoCooldownUntil && hasCard && stableFrames >= STABLE_NEEDED && novelty > NOVELTY_MIN) {
+      lastCapturedFp = fp;
+      autoCooldownUntil = now + AUTO_COOLDOWN_MS;
+      stableFrames = 0;
+      capture();
+    }
+  }
+  setTimeout(autoLoop, 220);
+}
+
 async function capture() {
   if (busy) return;
   const video = document.getElementById('video');
@@ -166,8 +262,11 @@ async function capture() {
   } catch(e) {
     btn.textContent = '⚠ ' + e.message;
   }
-  // Cooldown before the button is usable again
-  setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; busy = false; }, COOLDOWN_MS);
+  // Cooldown before the next capture; restore the label for the current mode
+  setTimeout(() => {
+    btn.textContent = autoScan ? '⏸ Auto-scanning — tap to capture now' : '📸 Capture card';
+    btn.disabled = false; busy = false;
+  }, COOLDOWN_MS);
 }
 
 init();
