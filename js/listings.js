@@ -206,6 +206,10 @@ const Listings = (() => {
     render();
   }
 
+  function setMarketCheck(index, data) {
+    if (items[index]) { items[index].marketCheck = data; save(); render(); }
+  }
+
   function getAll()   { return items; }
   function getItems() { return items; }
 
@@ -360,6 +364,16 @@ const Listings = (() => {
       ? `<span title="${item.priceConf || ''} confidence${item.priceNotes ? ': ' + item.priceNotes : ''}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${confColor};margin-left:4px;vertical-align:middle;cursor:help;"></span>`
       : '';
     const ebayUrl = buildEbaySearchUrl(item);
+    // Market check indicator
+    let marketTag = '';
+    if (item.marketCheck) {
+      if (item.marketCheck.found === 0) {
+        marketTag = `<span title="No active eBay AU listings found" style="font-size:10px;color:var(--text-muted);">no comps</span>`;
+      } else if (item.marketCheck.verdict) {
+        const v = item.marketCheck.verdict;
+        marketTag = `<span title="eBay AU: ${item.marketCheck.found} listings, median $${item.marketCheck.activeMedian}, est. sold $${item.marketCheck.soldEstimate}" style="font-size:10px;color:${v.color};white-space:nowrap;cursor:help;">● ${v.text} ($${item.marketCheck.soldEstimate})</span>`;
+      }
+    }
     return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
       <input
         type="number"
@@ -374,6 +388,7 @@ const Listings = (() => {
         style="width:70px;"
       />${confDot}
       <a href="${ebayUrl}" target="_blank" class="price-ebay-link" title="Search eBay AU sold listings" style="font-size:11px;white-space:nowrap;">eBay AU ↗</a>
+      ${marketTag}
     </div>`;
   }
 
@@ -438,5 +453,5 @@ const Listings = (() => {
     render();
   }
 
-  return { add, remove, updatePrice, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, imageUrl, imageUrlFromFields };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, imageUrl, imageUrlFromFields };
 })();

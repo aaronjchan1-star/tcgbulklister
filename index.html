@@ -424,6 +424,23 @@
         </div>
       </div>
 
+      <!-- eBay market check -->
+      <div class="claude-pricing-box" style="margin-top:10px;">
+        <div class="claude-pricing-header">
+          <span>📊 eBay AU market check</span>
+          <span style="font-size:11px; color:var(--text-muted);">Compares your prices to live eBay AU listings</span>
+        </div>
+        <button id="market-check-btn" class="btn-claude" onclick="Market.bulkCheck()">
+          Check my prices against eBay market
+        </button>
+        <div class="bulk-status" id="market-status" style="display:none;"></div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">
+          Shows an indicator next to each price: <span style="color:var(--green)">● In range</span>,
+          <span style="color:var(--amber)">● Above market</span>,
+          <span style="color:#60a5fa">● Below market</span>. Estimates sold price from active listings.
+        </div>
+      </div>
+
       <!-- eBay manual fallback -->
       <button id="bulk-fetch-btn" class="btn-bulk" onclick="API.bulkFetch()" style="display:none; margin-top:8px;">Open eBay sold search for unpriced cards</button>
       <div id="bulk-status" class="bulk-status" style="display:none;"></div>
@@ -442,6 +459,7 @@
 <script src="js/claude.js"></script>
 <script src="js/scan.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/market.js"></script>
 <script>
 function logout() {
   localStorage.removeItem('tcg_auth_session');
