@@ -56,6 +56,10 @@ const Scan = (() => {
     phoneSession = genSessionCode();
     phoneReceived = 0;
     phoneConnected = false;
+    const strip = document.getElementById('phone-thumbs');
+    if (strip) strip.innerHTML = '';
+    const tw = document.getElementById('phone-thumbs-wrap');
+    if (tw) tw.style.display = 'none';
 
     const captureUrl = `${location.origin}/capture.html?s=${phoneSession}`;
     const qrImg = document.getElementById('phone-qr');
@@ -66,16 +70,31 @@ const Scan = (() => {
     if (linkEl) { linkEl.href = captureUrl; linkEl.textContent = captureUrl.replace(/^https?:\/\//, ''); }
     setPhoneStatus('Waiting for phone to connect…', 'off');
 
-    // Poll the relay for images + connection status
-    phonePollTimer = setInterval(pollPhone, 2500);
+    // Poll the relay. 3s keeps it responsive while sparing the free-tier quota.
+    phonePollTimer = setInterval(pollPhone, 3000);
     pollPhone();
   }
+
+  let pollCount = 0;
 
   function stopPhoneSession() {
     if (phonePollTimer) clearInterval(phonePollTimer);
     phonePollTimer = null;
+    // Wipe any leftover images from the relay so nothing lingers in Upstash
+    if (phoneSession) {
+      const s = phoneSession;
+      fetch('/api/relay', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ session: s, cleanup: 1 }) }).catch(()=>{});
+    }
     phoneSession = null;
   }
+
+  // Clean up the relay if the user closes/reloads the desktop tab mid-session
+  window.addEventListener('beforeunload', () => {
+    if (phoneSession) {
+      const body = JSON.stringify({ session: phoneSession, cleanup: 1 });
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/relay', new Blob([body], { type: 'application/json' }));
+    }
+  });
 
   function setPhoneStatus(text, cls) {
     const el = document.getElementById('phone-status');
@@ -86,18 +105,21 @@ const Scan = (() => {
 
   async function pollPhone() {
     if (!phoneSession || phoneProcessing) return;
+    pollCount++;
+    // Ask for the connection flag only every 4th poll (~12s) to save commands
+    const wantConn = !phoneConnected || (pollCount % 4 === 0);
     try {
-      const resp = await fetch(`/api/relay?session=${phoneSession}`);
+      const resp = await fetch(`/api/relay?session=${phoneSession}${wantConn ? '&conn=1' : ''}`);
       const data = await resp.json();
       if (data.configured === false) {
         setPhoneStatus('⚠️ Sync store not set up — phone scanning needs the Upstash env vars (see SYNC_SETUP.md).', 'off');
         stopPhoneSession();
         return;
       }
-      if (data.connected && !phoneConnected) {
+      if (data.connected === true && !phoneConnected) {
         phoneConnected = true;
         setPhoneStatus('📱 Phone connected — start capturing cards!', 'ok');
-      } else if (!data.connected && !phoneConnected) {
+      } else if (data.connected === false && !phoneConnected) {
         setPhoneStatus('Waiting for phone to connect…', 'off');
       }
 
@@ -112,6 +134,26 @@ const Scan = (() => {
   const recentScans = {};  // number → timestamp, for duplicate suppression
   const DUPLICATE_WINDOW_MS = 6000;
 
+  // Add a small thumbnail to the live strip as each card comes in from the phone
+  function addThumb(imageB64, label, sublabel, state) {
+    const strip = document.getElementById('phone-thumbs');
+    if (!strip) return;
+    const colors = { added:'var(--green)', review:'var(--amber)', dup:'#60a5fa', fail:'var(--red)' };
+    const border = colors[state] || 'var(--border-md)';
+    const cell = document.createElement('div');
+    cell.style.cssText = 'flex:0 0 auto; width:72px; text-align:center;';
+    cell.innerHTML = `
+      <div style="position:relative; width:72px; height:100px; border-radius:8px; overflow:hidden; border:2px solid ${border}; background:#000;">
+        <img src="data:image/jpeg;base64,${imageB64}" style="width:100%; height:100%; object-fit:cover;" />
+        <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.7); color:${border}; font-size:10px; padding:2px;">${label}</div>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sublabel}</div>`;
+    strip.prepend(cell);
+    // Keep the strip light — cap at the last 12 thumbnails
+    while (strip.children.length > 12) strip.removeChild(strip.lastChild);
+    document.getElementById('phone-thumbs-wrap').style.display = 'block';
+  }
+
   async function processRelayed(images) {
     phoneProcessing = true;
     const autoPrice = document.getElementById('scan-autoprice')?.value === 'yes';
@@ -124,6 +166,7 @@ const Scan = (() => {
         const ident = await identifyCard(img.image, img.mediaType || 'image/jpeg');
         if (!ident.number || ident.error) {
           setPhoneStatus(`Couldn't read that card — reposition and capture again`, 'off');
+          addThumb(img.image, '✗ unreadable', 'try again', 'fail');
           continue;
         }
 
@@ -132,6 +175,7 @@ const Scan = (() => {
         const now = Date.now();
         if (recentScans[key] && (now - recentScans[key]) < DUPLICATE_WINDOW_MS) {
           setPhoneStatus(`⏭ Skipped duplicate of ${ident.number} (just scanned)`, 'busy');
+          addThumb(img.image, '⏭ duplicate', ident.number, 'dup');
           recentScans[key] = now;
           continue;
         }
@@ -142,10 +186,12 @@ const Scan = (() => {
           Listings.addAll([enriched]);
           if (autoPrice && window.ClaudeAI?.bulkPrice) setTimeout(() => ClaudeAI.bulkPrice(), 400);
           setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — next card!`, 'ok');
+          addThumb(img.image, '✓ added', `${enriched.number}`, 'added');
         } else {
           scannedCards.push(enriched);
           renderResults(autoPrice);
           setPhoneStatus(`Added ${enriched.name || enriched.number} to review (low confidence — verify it)`, 'busy');
+          addThumb(img.image, '⚠ review', `${enriched.number}`, 'review');
         }
       } catch(e) {
         setPhoneStatus(`Scan failed: ${e.message}`, 'off');

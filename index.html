@@ -139,6 +139,18 @@
       <p style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:6px;">
         Cards captured on your phone appear here automatically. High-confidence cards are added straight to your list.
       </p>
+
+      <!-- Live thumbnail strip of incoming captures -->
+      <div id="phone-thumbs-wrap" style="display:none; margin-top:12px;">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span>Recent captures</span>
+          <span style="color:var(--green)">● added</span>
+          <span style="color:var(--amber)">● review</span>
+          <span style="color:#60a5fa">● duplicate</span>
+          <span style="color:var(--red)">● unreadable</span>
+        </div>
+        <div id="phone-thumbs" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch;"></div>
+      </div>
     </div>
 
     <div id="scan-options" style="display:none; margin-top:12px;">
