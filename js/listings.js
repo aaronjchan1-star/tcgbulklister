@@ -22,7 +22,81 @@ const Listings = (() => {
 
   function sanitiseCard(card) {
     if (card.name) card.name = cleanName(card.name);
+    if (!card._id) card._id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     return card;
+  }
+
+  /* ─────────────── Bulk-lot selection ─────────────── */
+  let selectMode  = false;
+  let selectedIds = new Set();
+
+  const GAME_LABELS = { onePiece:'One Piece', pokemon:'Pokémon', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh!' };
+
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    if (!selectMode) selectedIds.clear();
+    render();
+  }
+  function isSelectMode() { return selectMode; }
+
+  function toggleSelect(id) {
+    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+    render();
+  }
+
+  function selectAllGame(game) {
+    items.forEach(it => { if (it.game === game && it.listingType !== 'bulk') selectedIds.add(it._id); });
+    render();
+  }
+
+  function clearSelection() { selectedIds.clear(); render(); }
+
+  function getSelectionInfo() {
+    const sel = items.filter(it => selectedIds.has(it._id) && it.listingType !== 'bulk');
+    const games = [...new Set(sel.map(c => c.game))];
+    return { count: sel.length, games, game: games.length === 1 ? games[0] : null, cards: sel };
+  }
+
+  // Distinct games currently present (for quick-select chips)
+  function gamesPresent() {
+    return [...new Set(items.filter(it => it.listingType !== 'bulk').map(c => c.game))];
+  }
+
+  function createBulkFromSelected(price) {
+    const info = getSelectionInfo();
+    if (info.count < 2)  return { error: 'Select at least 2 cards for a bulk lot.' };
+    if (!info.game)      return { error: 'A bulk lot must be a single game. You have ' + info.games.map(g => GAME_LABELS[g] || g).join(' + ') + ' selected.' };
+
+    const conds = [...new Set(info.cards.map(c => c.cond))];
+    const totalCards = info.cards.reduce((s, c) => s + (c.qty || 1), 0);
+
+    const bulk = sanitiseCard({
+      game:        info.game,
+      listingType: 'bulk',
+      bulkItems:   info.cards.map(c => ({
+        number: c.number, name: c.name, cond: c.cond,
+        qty: c.qty || 1,
+        variant: typeof c.variant === 'string' ? c.variant : (c.variant?.label || '')
+      })),
+      bulkCount:   totalCards,
+      name:        `${totalCards} ${GAME_LABELS[info.game]} Cards Bulk Lot`,
+      number:      '',
+      cond:        conds.length === 1 ? conds[0] : 'Mixed',
+      qty:         1,
+      price:       price || 0,
+      post:        0,
+      lang:        'English',
+      variant:     { suffix: '', label: '' }
+    });
+
+    // Remove the individual cards that went into the bulk, then add the bulk listing
+    items = items.filter(it => !selectedIds.has(it._id));
+    items.push(bulk);
+    selectedIds.clear();
+    selectMode = false;
+    save();
+    render();
+    return { ok: true, count: totalCards, game: GAME_LABELS[info.game] };
   }
 
   function setGame(game) { currentGame = game; }
@@ -458,8 +532,35 @@ const Listings = (() => {
     } else {
       empty.style.display = 'none';
       bar.style.display   = 'block';
-      list.innerHTML = items.map((l, i) => `
-        <div class="listing-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''}">
+      renderSelectionBar();
+      list.innerHTML = items.map((l, i) => {
+        const isBulk = l.listingType === 'bulk';
+        const selectable = selectMode && !isBulk;
+        const sel = selectedIds.has(l._id);
+        const rowClick = selectable ? `onclick="Listings.toggleSelect('${l._id}')"` : '';
+        const rowCls = `listing-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''} ${selectable ? 'selectable' : ''} ${sel ? 'selected' : ''}`;
+        const checkbox = selectMode && !isBulk
+          ? `<span class="sel-check">${sel ? '&#x2713;' : ''}</span>`
+          : '';
+        if (isBulk) {
+          return `
+            <div class="listing-row bulk-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''}">
+              <span style="font-size:20px;">&#x1F4E6;</span>
+              <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
+              <span class="mono">BULK</span>
+              <span class="listing-name" title="${l.bulkCount} cards">${cleanName(l.name)}</span>
+              <span class="muted" title="${(l.bulkItems||[]).map(c=>c.number).join(', ')}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.bulkCount} cards: ${(l.bulkItems||[]).slice(0,3).map(c=>c.number).join(', ')}${l.bulkCount>3?'…':''}</span>
+              <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Mixed' ? 'Mixed' : l.cond}</span>
+              <span class="listing-type-label type-bulk">Bulk lot</span>
+              ${priceCell(l, i)}
+              ${ebayLinkCell(l)}
+              <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
+              <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
+            </div>`;
+        }
+        return `
+        <div class="${rowCls}" ${rowClick}>
+          ${checkbox}
           <img class="card-thumb" src="${imageUrl(l)}" alt="${l.name}" onerror="this.style.display='none'" />
           <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
           <span class="mono">${displayNumber(l)}</span>
@@ -470,9 +571,9 @@ const Listings = (() => {
           ${priceCell(l, i)}
           ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
-          <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
-        </div>
-      `).join('');
+          <button class="remove-btn" onclick="event.stopPropagation(); Listings.remove(${i})" title="Remove">&#x2715;</button>
+        </div>`;
+      }).join('');
 
       const bulkBtn = document.getElementById('bulk-fetch-btn');
       if (bulkBtn) {
@@ -481,6 +582,49 @@ const Listings = (() => {
       }
     }
     updateStats();
+  }
+
+  function renderSelectionBar() {
+    const bar = document.getElementById('selection-bar');
+    if (!bar) return;
+    if (!selectMode) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+
+    const info = getSelectionInfo();
+    const chips = gamesPresent().map(g =>
+      `<button class="sel-chip" onclick="Listings.selectAllGame('${g}')">+ all ${GAME_LABELS[g] || g}</button>`
+    ).join('');
+
+    let msg, canCreate = false;
+    if (info.count === 0)       msg = 'Tap cards to select them for a bulk lot.';
+    else if (info.count === 1)  msg = '1 selected — pick at least 2 to bundle.';
+    else if (!info.game)        msg = `<span style="color:var(--amber)">${info.count} selected across ${info.games.length} games — a bulk lot must be one game.</span>`;
+    else { msg = `<strong>${info.count}</strong> ${GAME_LABELS[info.game]} cards selected`; canCreate = true; }
+
+    bar.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="font-size:13px;">${msg}</span>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-left:auto;">
+          ${chips}
+          <button class="sel-chip" onclick="Listings.clearSelection()">Clear</button>
+          <button class="btn-create-bulk" ${canCreate ? '' : 'disabled'} onclick="Listings.promptCreateBulk()">📦 Create bulk lot</button>
+          <button class="sel-chip" onclick="Listings.toggleSelectMode()">Done</button>
+        </div>
+      </div>`;
+  }
+
+  function promptCreateBulk() {
+    const info = getSelectionInfo();
+    if (info.count < 2 || !info.game) return;
+    // Create unpriced — the user sets the lot price in the new bulk row's price box.
+    const result = createBulkFromSelected(0);
+    const s = document.getElementById('save-status');
+    if (result.error) {
+      if (s) { s.textContent = result.error; s.style.opacity = '1'; setTimeout(()=>s.style.opacity='0', 4000); }
+    } else if (s) {
+      s.textContent = `Created a ${result.count}-card ${result.game} bulk lot — set its price in the new 📦 row.`;
+      s.style.opacity = '1'; setTimeout(()=>s.style.opacity='0', 5000);
+    }
   }
 
   function updateStats() {
@@ -535,5 +679,5 @@ const Listings = (() => {
     return { merged: false, qty: clean.qty, name: clean.name };
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk };
 })();

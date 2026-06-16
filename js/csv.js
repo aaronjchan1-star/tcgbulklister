@@ -367,7 +367,54 @@ const CSV = (() => {
     return parts.join('');
   }
 
+  function buildBulkRow(card) {
+    const gameNames = { onePiece:'One Piece Card Game', pokemon:'Pokémon TCG', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh! TCG' };
+    const condWord  = card.cond === 'Mixed' ? '' : ` ${card.cond}`;
+    let title = `${card.bulkCount} ${ {onePiece:'One Piece',pokemon:'Pokémon',riftbound:'Riftbound',yugioh:'Yu-Gi-Oh!'}[card.game] || '' } Cards Bulk Lot${condWord}`.replace(/\s{2,}/g,' ').trim();
+    if (title.length > 80) title = title.substring(0, 80);
+
+    // Description: intro + list of included cards
+    const items = card.bulkItems || [];
+    const listHtml = items.map(c => {
+      const v = c.variant ? ` (${c.variant})` : '';
+      const q = c.qty && c.qty > 1 ? ` x${c.qty}` : '';
+      return `<li>${esc2(c.number)} — ${esc2(cleanName(c.name || ''))}${v}${q}</li>`;
+    }).join('');
+    const condLine = card.cond === 'Mixed' ? 'Mixed (see list)' : card.cond;
+    const desc = `<div style="font-family:Arial,sans-serif;max-width:600px;">`
+      + `<h2>${esc2(card.bulkCount)} ${esc2(gameNames[card.game] || 'TCG')} Cards — Bulk Lot</h2>`
+      + `<p><strong>Condition:</strong> ${esc2(condLine)}</p>`
+      + `<p>This lot contains the following ${esc2(card.bulkCount)} cards:</p>`
+      + `<ul>${listHtml}</ul>`
+      + `<p>All cards pictured/listed are included. Sold as one bulk lot.</p>`
+      + `</div>`;
+
+    const post = card.post || 0;
+    return [
+      'Add',
+      title,
+      CATEGORY[card.game] || '183454',
+      card.cond === 'Moderately Played' ? '3000' : '4000',
+      Math.max(1.00, card.price || 0).toFixed(2),
+      1,                       // one bulk lot
+      'FixedPriceItem', 'GTC',
+      desc,
+      '',                      // no single image
+      'Flat', 'AU_Regular',
+      post === 0 ? '0.00' : post.toFixed(2),
+      post === 0 ? '1' : '0',
+      'Sydney, NSW', '3',
+      'ReturnsNotAccepted',
+      ebayGame(card.game),
+      card.cond === 'Mixed' ? '400010' : ebayCardCondition(card.cond),
+      '', ''
+    ].map(esc).join(',');
+  }
+
+  function esc2(s) { return String(s == null ? '' : s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
   function buildStandaloneLotRow(card) {
+    if (card.listingType === 'bulk') return buildBulkRow(card);
     const name    = cleanName(card.name);
     const setName   = getSetName(card);
     const rarity    = card.variant?.label && card.variant.label !== 'Standard' ? card.variant.label : '';
@@ -439,9 +486,11 @@ const CSV = (() => {
 
     const allRows = [HEADERS.join(',')];
     [...normItems].sort((a, b) => {
-      const sa = a.number.split('-')[0], sb = b.number.split('-')[0];
+      // Bulk lots sort to the end
+      if ((a.listingType === 'bulk') !== (b.listingType === 'bulk')) return a.listingType === 'bulk' ? 1 : -1;
+      const sa = (a.number || '').split('-')[0], sb = (b.number || '').split('-')[0];
       if (sa !== sb) return sa.localeCompare(sb);
-      return (parseInt(a.number.split('-')[1]) || 0) - (parseInt(b.number.split('-')[1]) || 0);
+      return (parseInt((a.number||'').split('-')[1]) || 0) - (parseInt((b.number||'').split('-')[1]) || 0);
     }).forEach(c => allRows.push(buildStandaloneLotRow(c)));
 
     const csv  = allRows.join('\r\n');

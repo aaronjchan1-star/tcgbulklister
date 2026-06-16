@@ -438,9 +438,16 @@
       No cards added yet — use the form above to get started.
       <br><span style="font-size:12px; color:var(--text-hint); margin-top:4px; display:block;">Your list auto-saves in this browser.</span>
     </div>
+    <!-- Bulk-lot selection bar (shown in select mode) -->
+    <div id="selection-bar" style="display:none; margin-bottom:12px; padding:12px 14px; background:linear-gradient(180deg,#1f1a2e,#1a1726); border:1px solid #3a2e5a; border-radius:10px;"></div>
+
     <div id="listings-list"></div>
 
     <div id="action-bar" style="display:none; margin-top:16px;">
+
+      <!-- Bulk-lot select toggle -->
+      <button class="btn-bulk-select" onclick="Listings.toggleSelectMode()" style="margin-bottom:10px;">📦 Select cards for a bulk lot</button>
+
 
       <!-- Claude AI bulk pricer -->
       <div class="claude-pricing-box">
