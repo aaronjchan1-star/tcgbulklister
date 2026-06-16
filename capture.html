@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TCG Lister — Phone Scanner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e8e8e8; height: 100vh; overflow: hidden; }
+    #app { display: flex; flex-direction: column; height: 100vh; }
+    header { padding: 12px 16px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 15px; font-weight: 700; }
+    #status { font-size: 12px; color: #4ade80; }
+    #status.off { color: #f59e0b; }
+    #video-wrap { flex: 1; position: relative; background: #000; overflow: hidden; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    #frame-guide { position: absolute; inset: 8% 12%; border: 2px dashed rgba(255,255,255,0.4); border-radius: 14px; pointer-events: none; }
+    #count-badge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 99px; }
+    #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+    footer { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); background: #1a1a1a; border-top: 1px solid #2a2a2a; }
+    #capture-btn { width: 100%; padding: 18px; font-size: 17px; font-weight: 700; border-radius: 14px; background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff; border: none; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    #capture-btn:active { filter: brightness(0.9); }
+    #capture-btn:disabled { opacity: 0.5; }
+    .hint { text-align: center; font-size: 12px; color: #666; margin-top: 10px; }
+    #setup { padding: 40px 24px; text-align: center; }
+    #setup input { width: 100%; padding: 14px; font-size: 22px; font-family: monospace; letter-spacing: 4px; text-align: center; text-transform: uppercase; background: #242424; border: 1px solid #363636; border-radius: 10px; color: #e8e8e8; margin: 16px 0; outline: none; }
+    #setup button { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 10px; background: #e8e8e8; color: #0f0f0f; border: none; cursor: pointer; }
+    .err { color: #ef4444; font-size: 13px; margin-top: 12px; min-height: 18px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Manual session entry if no code in URL -->
+  <div id="setup" style="display:none;">
+    <h1 style="font-size:18px; margin-bottom:8px;">📷 Phone Scanner</h1>
+    <p style="font-size:13px; color:#888;">Enter the 6-character code shown on your computer.</p>
+    <input type="text" id="session-input" placeholder="ABC123" maxlength="12" />
+    <button onclick="start()">Connect</button>
+    <div class="err" id="setup-err"></div>
+  </div>
+
+  <!-- Camera -->
+  <div id="camera" style="display:none; flex:1; flex-direction:column;">
+    <header>
+      <h1>📷 Scanning</h1>
+      <span id="status" class="off">Connecting…</span>
+    </header>
+    <div id="video-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="frame-guide"></div>
+      <div id="count-badge">0 sent</div>
+      <div id="flash"></div>
+    </div>
+    <footer>
+      <button id="capture-btn" onclick="capture()">📸 Capture card</button>
+      <p class="hint">Line the card up in the frame and tap. It appears on your computer instantly.</p>
+    </footer>
+  </div>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+let session = '';
+let sent = 0;
+let stream = null;
+
+function getParam(name) {
+  return new URLSearchParams(location.search).get(name);
+}
+
+async function init() {
+  const s = getParam('s') || getParam('session');
+  if (s) { document.getElementById('session-input') && (0); session = s.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12); start(); }
+  else { document.getElementById('setup').style.display = 'block'; document.getElementById('app').style.display='block'; }
+}
+
+async function start() {
+  if (!session) {
+    const v = document.getElementById('session-input').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if (!v) { document.getElementById('setup-err').textContent = 'Enter the code from your computer.'; return; }
+    session = v;
+  }
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('camera').style.display = 'flex';
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    document.getElementById('video').srcObject = stream;
+  } catch(e) {
+    document.getElementById('status').textContent = 'Camera blocked';
+    alert('Could not access the camera. Please allow camera access and reload.');
+    return;
+  }
+
+  // Heartbeat so desktop knows we connected
+  ping();
+  setInterval(ping, 20000);
+}
+
+async function ping() {
+  try {
+    await fetch('/api/relay', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ session, ping: 1 }) });
+    const st = document.getElementById('status');
+    st.textContent = 'Connected'; st.classList.remove('off');
+  } catch(e) {
+    const st = document.getElementById('status');
+    st.textContent = 'Offline'; st.classList.add('off');
+  }
+}
+
+async function capture() {
+  const video = document.getElementById('video');
+  if (!video.videoWidth) return;
+  const btn = document.getElementById('capture-btn');
+
+  // Flash effect
+  const flash = document.getElementById('flash');
+  flash.style.opacity = '0.8';
+  setTimeout(() => flash.style.opacity = '0', 150);
+
+  // Grab frame, downscale to max 1024px
+  const canvas = document.getElementById('canvas');
+  const maxDim = 1024;
+  let w = video.videoWidth, h = video.videoHeight;
+  if (w > maxDim || h > maxDim) { const sc = maxDim / Math.max(w, h); w = Math.round(w*sc); h = Math.round(h*sc); }
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  const base64 = dataUrl.split(',')[1];
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending…';
+  try {
+    const resp = await fetch('/api/relay', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ session, image: base64, mediaType: 'image/jpeg' })
+    });
+    const data = await resp.json();
+    if (data.configured === false) throw new Error('Sync not set up on server');
+    if (!resp.ok) throw new Error(data.error || 'Upload failed');
+    sent++;
+    document.getElementById('count-badge').textContent = sent + ' sent';
+    btn.textContent = '✓ Sent!';
+    setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; }, 500);
+  } catch(e) {
+    btn.textContent = '⚠ ' + e.message;
+    setTimeout(() => { btn.textContent = '📸 Capture card'; btn.disabled = false; }, 1800);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

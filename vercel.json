@@ -40,6 +40,9 @@
     },
     "api/smartprice.js": {
       "maxDuration": 30
+    },
+    "api/relay.js": {
+      "maxDuration": 30
     }
   }
 }

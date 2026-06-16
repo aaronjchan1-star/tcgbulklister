@@ -23,10 +23,122 @@ const Scan = (() => {
   }
 
   function setMode(mode) {
-    document.getElementById('scan-mode-upload').classList.toggle('active', mode === 'upload');
-    document.getElementById('scan-mode-camera').classList.toggle('active', mode === 'camera');
-    document.getElementById('scan-dropzone').style.display     = mode === 'upload' ? 'block' : 'none';
-    document.getElementById('scan-camera-mode').style.display  = mode === 'camera' ? 'block' : 'none';
+    ['upload','camera','phone'].forEach(m => {
+      const btn = document.getElementById('scan-mode-' + m);
+      if (btn) btn.classList.toggle('active', mode === m);
+    });
+    const dz   = document.getElementById('scan-dropzone');
+    const cam  = document.getElementById('scan-camera-mode');
+    const ph   = document.getElementById('scan-phone-mode');
+    if (dz)  dz.style.display  = mode === 'upload' ? 'block' : 'none';
+    if (cam) cam.style.display = mode === 'camera' ? 'block' : 'none';
+    if (ph)  ph.style.display  = mode === 'phone'  ? 'block' : 'none';
+    if (mode === 'phone') startPhoneSession();
+    else stopPhoneSession();
+  }
+
+  /* ─────────────── Live phone scanning via QR ─────────────── */
+  let phoneSession = null;
+  let phonePollTimer = null;
+  let phoneConnected = false;
+  let phoneProcessing = false;
+  let phoneReceived = 0;
+
+  function genSessionCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let c = ''; const a = new Uint8Array(6); crypto.getRandomValues(a);
+    for (const b of a) c += chars[b % chars.length];
+    return c;
+  }
+
+  function startPhoneSession() {
+    if (phoneSession) return;  // already running
+    phoneSession = genSessionCode();
+    phoneReceived = 0;
+    phoneConnected = false;
+
+    const captureUrl = `${location.origin}/capture.html?s=${phoneSession}`;
+    const qrImg = document.getElementById('phone-qr');
+    if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=${encodeURIComponent(captureUrl)}`;
+    const codeEl = document.getElementById('phone-code');
+    if (codeEl) codeEl.textContent = phoneSession;
+    const linkEl = document.getElementById('phone-link');
+    if (linkEl) { linkEl.href = captureUrl; linkEl.textContent = captureUrl.replace(/^https?:\/\//, ''); }
+    setPhoneStatus('Waiting for phone to connect…', 'off');
+
+    // Poll the relay for images + connection status
+    phonePollTimer = setInterval(pollPhone, 2500);
+    pollPhone();
+  }
+
+  function stopPhoneSession() {
+    if (phonePollTimer) clearInterval(phonePollTimer);
+    phonePollTimer = null;
+    phoneSession = null;
+  }
+
+  function setPhoneStatus(text, cls) {
+    const el = document.getElementById('phone-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = cls === 'ok' ? 'var(--green)' : cls === 'busy' ? 'var(--accent)' : 'var(--amber)';
+  }
+
+  async function pollPhone() {
+    if (!phoneSession || phoneProcessing) return;
+    try {
+      const resp = await fetch(`/api/relay?session=${phoneSession}`);
+      const data = await resp.json();
+      if (data.configured === false) {
+        setPhoneStatus('⚠️ Sync store not set up — phone scanning needs the Upstash env vars (see SYNC_SETUP.md).', 'off');
+        stopPhoneSession();
+        return;
+      }
+      if (data.connected && !phoneConnected) {
+        phoneConnected = true;
+        setPhoneStatus('📱 Phone connected — start capturing cards!', 'ok');
+      } else if (!data.connected && !phoneConnected) {
+        setPhoneStatus('Waiting for phone to connect…', 'off');
+      }
+
+      if (data.images && data.images.length) {
+        await processRelayed(data.images);
+      }
+    } catch(e) {
+      setPhoneStatus('Connection issue, retrying…', 'off');
+    }
+  }
+
+  async function processRelayed(images) {
+    phoneProcessing = true;
+    const autoPrice = document.getElementById('scan-autoprice')?.value === 'yes';
+    document.getElementById('scan-options').style.display = 'block';
+
+    for (const img of images) {
+      phoneReceived++;
+      setPhoneStatus(`📱 Scanning card ${phoneReceived} from phone…`, 'busy');
+      try {
+        const ident = await identifyCard(img.image, img.mediaType || 'image/jpeg');
+        if (!ident.number || ident.error) {
+          setPhoneStatus(`Card ${phoneReceived}: couldn't read it — try again`, 'off');
+          continue;
+        }
+        const enriched = await enrichCard(ident);
+        // Rapid: high/medium confidence auto-add, low confidence queues for review
+        if (enriched.scanConfidence !== 'low') {
+          Listings.addAll([enriched]);
+          if (autoPrice && window.ClaudeAI?.bulkPrice) setTimeout(() => ClaudeAI.bulkPrice(), 400);
+          setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — keep going!`, 'ok');
+        } else {
+          scannedCards.push(enriched);
+          renderResults(autoPrice);
+          setPhoneStatus(`Added ${enriched.name || enriched.number} to review (low confidence)`, 'busy');
+        }
+      } catch(e) {
+        setPhoneStatus(`Card ${phoneReceived} failed: ${e.message}`, 'off');
+      }
+    }
+    phoneProcessing = false;
   }
 
   function isRapidMode() {
