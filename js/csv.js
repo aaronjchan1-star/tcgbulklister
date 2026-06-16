@@ -64,7 +64,7 @@ const CSV = (() => {
     const setCode = (card.number?.split('-')[0] || '').toUpperCase();
 
     if (card.game === 'riftbound') {
-      const rb = { OGN:'Origins', OGS:'Origins Overnumbered', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered' };
+      const rb = { OGN:'Origins', OGS:'Origins Proving Grounds', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered', VEN:'Vendetta', ARC:'Arcane' };
       return card.limitlessSetName || rb[setCode] || '';
     }
 
@@ -310,9 +310,12 @@ const CSV = (() => {
       setLine += ` · ${card.variant}`;
     }
     parts.push(`<p>${setLine}</p>`);
-    // Pokemon: show rarity if known
-    if (card.game === 'pokemon' && card.rarity) {
-      parts.push(`<p><em>${card.rarity}</em></p>`);
+    // Rarity line for all games
+    const rarityLabel = card.game === 'pokemon'
+      ? card.rarity
+      : (card.variant?.label && !['Standard',''].includes(card.variant.label) ? card.variant.label : '');
+    if (rarityLabel) {
+      parts.push(`<p><b>Rarity:</b> ${rarityLabel}</p>`);
     }
 
     // Card type line: "Character • Purple • 10 Cost" — clean newlines

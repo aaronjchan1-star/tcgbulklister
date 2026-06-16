@@ -26,7 +26,7 @@
   <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>
       <h1>TCG eBay AU Bulk Lister</h1>
-      <p>Scan, price &amp; export — One Piece, Pokémon, Riftbound, Yu-Gi-Oh!</p>
+      <p>Scan · auto-price · export — One Piece, Pokémon, Riftbound &amp; Yu-Gi-Oh!</p>
     </div>
     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
       <span class="sync-pill" id="sync-pill" onclick="Sync.openModal()">
@@ -238,24 +238,6 @@
         </div>
       </div>
 
-      <!-- Pokémon variant selector -->
-      <div class="form-row row-2" style="margin-bottom:12px;">
-        <div class="field">
-          <label>Variant / Finish <span style="color:var(--text-muted); font-weight:400;">— affects price &amp; title</span></label>
-          <select id="f-pk-variant" onchange="UI.onPokemonVariantChange()">
-            <option value="Normal">Normal (non-holo)</option>
-            <option value="Holo">Holo</option>
-            <option value="Reverse Holo">Reverse Holo</option>
-            <option value="Poke Ball">Poké Ball Pattern</option>
-            <option value="Master Ball">Master Ball Pattern</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Market price <span style="color:var(--text-muted); font-weight:400;">— from TCGplayer (AUD est.)</span></label>
-          <input type="text" id="f-pk-marketprice" placeholder="Select a card first" readonly style="background:#1a1a1a; color:var(--text-muted);" />
-        </div>
-      </div>
-
       <!-- Pokémon card picker grid -->
       <div id="pk-card-picker" style="display:none;">
         <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Multiple cards found — click the correct one:</p>
@@ -328,6 +310,25 @@
           <label>Qty</label>
           <input type="number" id="f-ygo-qty" value="1" min="1" max="99" />
         </div>
+      </div>
+    </div>
+
+    <!-- Rarity — shared, populated per game -->
+    <div class="form-row row-2" style="margin-bottom:12px;">
+      <div class="field">
+        <label>Rarity <span style="color:var(--text-muted); font-weight:400;">— auto-detected, override if needed</span></label>
+        <select id="f-rarity"></select>
+      </div>
+      <div class="field" id="pk-finish-wrap" style="display:none;">
+        <label>Finish <span style="color:var(--text-muted); font-weight:400;">— Pokémon only</span></label>
+        <select id="f-pk-variant" onchange="UI.onPokemonVariantChange && UI.onPokemonVariantChange()">
+          <option value="Normal">Normal (non-holo)</option>
+          <option value="Holo">Holo</option>
+          <option value="Reverse Holo">Reverse Holo</option>
+          <option value="Poke Ball">Poké Ball Pattern</option>
+          <option value="Master Ball">Master Ball Pattern</option>
+        </select>
+        <input type="hidden" id="f-pk-marketprice" />
       </div>
     </div>
 
@@ -458,6 +459,7 @@
 
 </div>
 <script src="js/sets.js"></script>
+<script src="js/rarities.js"></script>
 <script src="js/api.js"></script>
 <script src="js/listings.js"></script>
 <script src="js/csv.js"></script>

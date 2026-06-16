@@ -42,8 +42,34 @@ const UI = (() => {
     const activeBtn = { onePiece:'btn-op', pokemon:'btn-pk', riftbound:'btn-rb', yugioh:'btn-ygo' }[game];
     if (activeBtn) { const el = document.getElementById(activeBtn); if (el) el.classList.add('active'); }
     const priceEl = document.getElementById('f-price'); if (priceEl) priceEl.value = '';
+    // Populate rarity dropdown for this game
+    populateRarities(game);
+    // Show finish dropdown only for Pokemon
+    const finWrap = document.getElementById('pk-finish-wrap');
+    if (finWrap) finWrap.style.display = game === 'pokemon' ? 'block' : 'none';
     resetOPPicker();
     resetPokemonPicker();
+  }
+
+  function populateRarities(game, selected) {
+    const sel = document.getElementById('f-rarity');
+    if (!sel || typeof RARITIES === 'undefined') return;
+    const list = RARITIES[game] || [];
+    sel.innerHTML = list.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    if (selected) {
+      const val = (typeof normaliseRarity === 'function') ? normaliseRarity(game, selected) : selected;
+      sel.value = val;
+      // If the normalised value isn't an option, add it so it shows
+      if (sel.value !== val && val) {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        sel.appendChild(opt); sel.value = val;
+      }
+    }
+  }
+
+  function getRarity() {
+    return document.getElementById('f-rarity')?.value || '';
   }
 
   function toggleCustomPost() {
@@ -321,6 +347,9 @@ const UI = (() => {
     img.src       = card.images?.small || '';
     preview.style.display = img.src ? 'block' : 'none';
 
+    // Auto-select rarity from the API
+    if (card.rarity) populateRarities('pokemon', card.rarity);
+
     // Populate variant dropdown based on what TCGplayer prices exist
     const prices  = card.tcgplayer?.prices || {};
     const variantSel = document.getElementById('f-pk-variant');
@@ -494,6 +523,7 @@ const UI = (() => {
         if(nameEl) nameEl.value = data.name;
         window._currentCardDetails = data;
         window._currentOPSetName   = data.setName;
+        if (data.rarity) populateRarities('onePiece', data.rarity);
         if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
         if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + ' — click Add to list'; statusEl.className = 'lookup-status ok'; }
       } else {
@@ -525,6 +555,7 @@ const UI = (() => {
         if(nameEl) nameEl.value = data.name;
         window._currentCardDetails = data;
         window._currentOPSetName   = data.setName;
+        if (data.rarity) populateRarities('yugioh', data.rarity);
         if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
         if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + (data.setName ? ' · ' + data.setName : '') + ' — click Add'; statusEl.className = 'lookup-status ok'; }
       } else {
@@ -539,7 +570,7 @@ const UI = (() => {
     setGame, toggleCustomPost, setListingType, getListingType, getLotQty,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
     searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard, onPokemonVariantChange, getSelectedPokemonVariant,
-    searchRiftboundCard, searchYugiohCard,
+    searchRiftboundCard, searchYugiohCard, getRarity, populateRarities,
     updatePokemonPreview: () => {}
   };
 })();

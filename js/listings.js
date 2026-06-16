@@ -57,6 +57,7 @@ const Listings = (() => {
   async function add() {
     const price = parseFloat(document.getElementById('f-price').value) || 0;
     const post  = getPostage();
+    const pickedRarity = (window.UI && UI.getRarity) ? UI.getRarity() : '';
     let card;
 
     if (currentGame === 'onePiece') {
@@ -114,14 +115,58 @@ const Listings = (() => {
         qty: listingType === 'lot' ? lotQty : qty,
         // Use actual rarity from Limitless if available
         variant: variant
-          ? { suffix: variant.suffix, label: variant.label }
-          : { suffix: '', label: window._currentCardDetails?.rarity || rarity || '' },
+          ? { suffix: variant.suffix, label: pickedRarity || variant.label }
+          : { suffix: '', label: pickedRarity || window._currentCardDetails?.rarity || rarity || '' },
         imageUrl:         variant?.url || null,
         limitlessSetName: window._currentOPSetName || null,
         cardDetails:      window._currentCardDetails || null
       };
       window._currentOPSetName   = null;
       window._currentCardDetails = null;
+
+    } else if (currentGame === 'riftbound' || currentGame === 'yugioh') {
+      const g       = currentGame;
+      const prefix  = g === 'riftbound' ? 'f-rb' : 'f-ygo';
+      const number  = document.getElementById(`${prefix}-number`).value.trim().toUpperCase();
+      const nameVal = document.getElementById(`${prefix}-name`).value.trim();
+      const cond    = document.getElementById(`${prefix}-cond`).value;
+      const qty     = parseInt(document.getElementById(`${prefix}-qty`).value) || 1;
+
+      if (!number) {
+        const s = document.getElementById('save-status');
+        if (s) { s.textContent = 'Enter a card number first.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',3000); }
+        return;
+      }
+
+      const _ltype = UI.getListingType ? UI.getListingType() : 'lot-1';
+      const listingType = _ltype === 'playset' ? 'playset' : 'lot';
+      const lotQty = UI.getLotQty ? UI.getLotQty() : qty;
+
+      // Language: YGO detects from set code suffix
+      let lang = 'English';
+      if (g === 'yugioh') {
+        const lc = number.match(/-([A-Z]{2})\d/)?.[1];
+        lang = lc === 'JP' ? 'Japanese' : lc === 'AE' ? 'Asian-English' : lc === 'KR' ? 'Korean' : 'English';
+      }
+
+      const detected = window._currentCardDetails?.rarity || '';
+      card = {
+        game:            g,
+        number,
+        name:            nameVal || number,
+        lang,
+        cond,
+        qty:             listingType === 'lot' ? lotQty : qty,
+        price,
+        post,
+        listingType,
+        variant:         { suffix: '', label: pickedRarity || detected || '' },
+        imageUrl:        window._currentCardDetails?.imageUrl || null,
+        limitlessSetName: window._currentOPSetName || null,
+        cardDetails:     window._currentCardDetails || null
+      };
+      window._currentCardDetails = null;
+      window._currentOPSetName   = null;
 
     } else {
       const selected = UI.getSelectedPokemonCard();
@@ -150,7 +195,7 @@ const Listings = (() => {
         number:       selected.number,
         printedNumber: printedNum,
         name,
-        rarity:       selected.rarity || null,
+        rarity:       pickedRarity || selected.rarity || null,
         variant,                          // Normal / Holo / Reverse Holo / Poke Ball / Master Ball
         tcgUsdPrice:  usdPrice || null,   // raw USD market price for reference
         imageUrl:     selected.images?.large || selected.images?.small || '',
