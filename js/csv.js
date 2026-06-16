@@ -466,80 +466,70 @@ const CSV = (() => {
   // Defaults: Near Mint, English, variation listing, no price (Claude will fetch)
   // Language: leave blank for English, write "Japanese" for JP
   // Qty: leave blank or 1 for single. Write 2/3/4 for lots (becomes standalone lot listing)
+  // Detect which TCG a card number belongs to, from its format
+  function detectGame(number) {
+    const n = (number || '').toUpperCase().trim();
+    if (!n) return null;
+    if (n.includes('/')) return 'pokemon';                              // 025/198
+    if (/-[A-Z]{2}\d/.test(n)) return 'yugioh';                         // LOCR-JP001 (language code)
+    const prefix = n.split('-')[0];
+    if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
+    if (/^(OP\d|EB\d|ST\d|PRB|P)/.test(prefix)) return 'onePiece';     // OP01, EB04, ST01, PRB01
+    return null;  // unknown — will use explicit Game column or default
+  }
+
   function downloadTemplate() {
-    const headers = ['Number', 'Qty', 'Language', 'Listing Type'];
+    // Clean, universal template. Game is auto-detected from the number; the Game
+    // column is only needed to override or for ambiguous numbers.
+    const headers = ['Game', 'Number', 'Qty', 'Condition', 'Listing Type', 'Language', 'Variant', 'Price'];
     const examples = [
-      ['OP01-060', '1', '', 'set'],
-      ['OP15-113', '3', '', 'set'],
-      ['OP14-031', '1', 'Japanese', 'set'],
-      ['OP13-029', '2', '', 'lot'],
-      ['EB01-012', '1', '', 'playset'],
-      ['EB04-002', '2', '', 'playset'],
+      ['',          'OP07-026',    '1', 'NM', 'single',  '',         '',             ''     ],
+      ['',          'OP14-031',    '3', 'NM', 'single',  '',         '',             ''     ],
+      ['',          'EB04-002',    '1', 'NM', 'playset', '',         '',             ''     ],
+      ['',          'OP14-031',    '1', 'NM', 'single',  'Japanese', '',             '12.00'],
+      ['',          '025/198',     '1', 'NM', 'single',  '',         'Reverse Holo', ''     ],
+      ['',          '199/091',     '1', 'LP', 'single',  '',         'Holo',         ''     ],
+      ['',          'LOCR-JP001',  '2', 'NM', 'single',  '',         '',             ''     ],
+      ['',          'UNL-053',     '1', 'NM', 'single',  '',         '',             ''     ],
     ];
-    // Notes go in column F (index 5) so they don't interfere with data columns A-D
-    const notes = [
-      ['', '', '', '', '', '=== TCG BULK LISTER — IMPORT TEMPLATE ==='],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', 'COLUMNS:'],
-      ['', '', '', '', '', '  Number       — Card number e.g. OP01-060, EB04-002'],
-      ['', '', '', '', '', '  Price (AUD)  — Leave blank for Claude AI auto-pricing'],
-      ['', '', '', '', '', '  Description  — Leave blank to auto-generate from Limitless TCG'],
-      ['', '', '', '', '', '               Or type a custom description for the eBay listing'],
-      ['', '', '', '', '', '               Enter a price (e.g. 5.00) to set it manually'],
-      ['', '', '', '', '', '  Description  — Leave blank to auto-generate from Limitless TCG'],
-      ['', '', '', '', '', '               Or type a custom description for the eBay listing'],
-      ['', '', '', '', '', '               Enter a price (e.g. 5.00) to set it manually'],
-      ['', '', '', '', '', '  Qty          — See Listing Type below for meaning'],
-      ['', '', '', '', '', '  Language     — Leave blank for English. Write: Japanese'],
-      ['', '', '', '', '', '  Listing Type — set / lot / playset (see below)'],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', 'LISTING TYPES:'],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', '  set'],
-      ['', '', '', '', '', '    For SR, SE, SEC cards only.'],
-      ['', '', '', '', '', '    Adds the card to a single set variation listing on eBay.'],
-      ['', '', '', '', '', '    Qty = how many copies of the card you have.'],
-      ['', '', '', '', '', '    e.g. Number=OP15-113, Qty=3, Type=set'],
-      ['', '', '', '', '', '         → 1 listing with qty 3 in the OP15 set listing'],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', '  lot'],
-      ['', '', '', '', '', '    For R, UC, C cards sold as a bundle.'],
-      ['', '', '', '', '', '    Creates a standalone listing with qty prefix in title.'],
-      ['', '', '', '', '', '    Qty = number of cards in the listing.'],
-      ['', '', '', '', '', '    e.g. Number=OP14-031, Qty=2, Type=lot'],
-      ['', '', '', '', '', '         → 1 listing titled "2x Nami OP14-031 3D2Y"'],
-      ['', '', '', '', '', '    e.g. Number=OP14-031, Qty=1, Type=lot'],
-      ['', '', '', '', '', '         → 1 listing titled "Nami OP14-031 3D2Y"'],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', '  playset'],
-      ['', '', '', '', '', '    For R, UC, C cards sold as a competitive playset (4x).'],
-      ['', '', '', '', '', '    Each listing = 4 copies of the card.'],
-      ['', '', '', '', '', '    Qty = how many SEPARATE PLAYSET LISTINGS you want.'],
-      ['', '', '', '', '', '    e.g. Number=EB04-002, Qty=1, Type=playset'],
-      ['', '', '', '', '', '         → 1 listing titled "Jewelry Bonney EB04-002 ... Playset"'],
-      ['', '', '', '', '', '           (listing qty = 4 cards)'],
-      ['', '', '', '', '', '    e.g. Number=EB04-002, Qty=2, Type=playset'],
-      ['', '', '', '', '', '         → 2 separate listings, each with 4 cards'],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', 'NOTES:'],
-      ['', '', '', '', '', '  - Card name, set name, rarity and image are fetched automatically'],
-      ['', '', '', '', '', '  - Prices are fetched via Claude AI after import'],
-      ['', '', '', '', '', '  - Condition defaults to Near Mint'],
-      ['', '', '', '', '', '  - Postage defaults to Free'],
+    // Compact instructions in a trailing column so they never clash with data
+    const guide = [
+      'HOW TO USE THIS TEMPLATE',
+      '',
+      'Fill one row per card. Only Number is required — everything else is optional.',
+      'Card name, set, rarity and image are looked up automatically after import.',
+      '',
+      'COLUMNS',
+      '  Game          Usually leave BLANK — auto-detected from the number.',
+      '                Override with: onepiece / pokemon / riftbound / yugioh',
+      '  Number        Card number exactly as printed.',
+      '                  One Piece : OP07-026, EB04-002, ST01-001',
+      '                  Pokemon   : 025/198  (number/set total)',
+      '                  Yu-Gi-Oh! : LOCR-JP001  (set-lang+number)',
+      '                  Riftbound : UNL-053, OGN-001',
+      '  Qty           eBay stock count. 1 = single copy. Default 1.',
+      '  Condition     NM (Near Mint) / LP (Lightly Played) / MP. Default NM.',
+      '  Listing Type  single  = one listing (Qty sets the stock count)',
+      '                playset = a bundle of 4 cards sold together',
+      '  Language      Blank = English. Or: Japanese',
+      '  Variant       Pokemon finish: Holo / Reverse Holo / Poke Ball / Master Ball',
+      '                (leave blank for non-holo / other games)',
+      '  Price         Blank = auto-price from eBay+Claude. Or set e.g. 5.00',
+      '',
+      'TIPS',
+      '  - Numbers auto-detect the game, so a mixed list of all four TCGs works.',
+      '  - Delete the example rows before importing your own cards.',
     ];
-    // Merge examples and notes side by side on the same rows
-    const dataRows = examples.map((ex, i) => {
-      const note = notes[i] || [];
-      return [...ex, '', note[5] || ''];
-    });
-    // Any remaining note rows
-    const extraNotes = notes.slice(examples.length).map(n => ['', '', '', '', '', n[5] || '']);
-    const rows = [
-      [...headers, '', 'Notes'],
-      ...dataRows,
-      ...extraNotes
-    ].map(r => r.map(esc).join(',')).join('\r\n');
-    triggerDownload(rows, 'tcg_lister_template.csv');
+
+    const rows = [];
+    rows.push([...headers, '', 'GUIDE ↓'].map(esc).join(','));
+    const maxLen = Math.max(examples.length, guide.length);
+    for (let i = 0; i < maxLen; i++) {
+      const ex = examples[i] || ['', '', '', '', '', '', '', ''];
+      const gd = guide[i] != null ? guide[i] : '';
+      rows.push([...ex, '', gd].map(esc).join(','));
+    }
+    triggerDownload(rows.join('\r\n'), 'tcg_lister_template.csv');
   }
 
   /* ─── CSV import ─── */
@@ -563,58 +553,86 @@ const CSV = (() => {
         const hasHeaders = headerLine.includes('number');
         const startRow   = hasHeaders ? 1 : 0;
 
-        // Column indices
-        const colNum   = hasHeaders ? headerLine.indexOf('number')      : 0;
-        const colQty   = hasHeaders ? headerLine.indexOf('qty')         : 1;
-        const colLang  = hasHeaders ? headerLine.indexOf('language')    : 2;
-        const colLtype = hasHeaders ? headerLine.indexOf('listingtype') : 3;
-        const colPrice = hasHeaders ? headerLine.indexOf('priceaud')    : 4;
-        const colDesc  = hasHeaders ? (headerLine.indexOf('description') >= 0 ? headerLine.indexOf('description') : -1) : 5;
+        const col = (name, fallback) => {
+          if (!hasHeaders) return fallback;
+          const idx = headerLine.indexOf(name);
+          return idx >= 0 ? idx : -1;
+        };
+        const colGame  = col('game', -1);
+        const colNum   = col('number', 0);
+        const colQty   = col('qty', 1);
+        const colCond  = col('condition', -1);
+        const colLtype = col('listingtype', -1);
+        const colLang  = col('language', -1);
+        const colVar   = col('variant', -1);
+        const colPrice = col('price', -1);
+        const colDesc  = col('description', -1);
+
+        const get = (vals, idx) => idx >= 0 && vals[idx] != null ? vals[idx].trim() : '';
+        const condMap = { NM:'Near Mint', LP:'Lightly Played', MP:'Moderately Played',
+          'NEAR MINT':'Near Mint', 'LIGHTLY PLAYED':'Lightly Played', 'MODERATELY PLAYED':'Moderately Played' };
 
         const imported = [];
-        let skipped    = 0;
+        let skipped = 0;
 
         for (let i = startRow; i < lines.length; i++) {
-          const vals   = parseCSVLine(lines[i]);
-          if (vals.every(v => !v.trim())) continue;
+          const vals = parseCSVLine(lines[i]);
+          if (vals.every(v => !v || !v.trim())) continue;
 
-          const number   = (vals[colNum]  || '').trim().toUpperCase();
-          const qtyRaw   = parseInt(vals[colQty] || '1') || 1;
-          const lang     = (vals[colLang] || '').trim().toLowerCase() === 'japanese' ? 'Japanese' : 'English';
-          const ltypeRaw = colLtype >= 0 ? (vals[colLtype] || '').trim().toLowerCase() : '';
-          // playset = standalone lot of 4x copies
-          const priceRaw   = colPrice >= 0 ? parseFloat(vals[colPrice] || '0') || 0 : 0;
-          const isPlayset    = ltypeRaw === 'playset';
-          const isLot        = ltypeRaw === 'lot';
-          const listingType  = isPlayset ? 'playset' : 'lot';  // all non-playset = lot (individual listing)
-          // For playset: qty in CSV = number of playset listings
-          // Each playset listing = 4 cards
-          // qty=1 → one listing of 4; qty=2 → two listings of 4 each
-          const numPlaysets  = isPlayset ? Math.max(1, qtyRaw) : 1;
-          const finalQty     = isPlayset ? 4 : qtyRaw;
+          const number = get(vals, colNum).toUpperCase();
+          if (!number) { continue; }
 
-          if (!number || !number.includes('-')) { skipped++; continue; }
+          // Game: explicit column, else auto-detect from number format
+          let game = get(vals, colGame).toLowerCase().replace(/[^a-z]/g, '');
+          const gameAlias = { onepiece:'onePiece', op:'onePiece', pokemon:'pokemon', pkmn:'pokemon',
+            pkm:'pokemon', riftbound:'riftbound', rb:'riftbound', yugioh:'yugioh', ygo:'yugioh', ygioh:'yugioh' };
+          game = gameAlias[game] || detectGame(number);
+          if (!game) { skipped++; continue; }   // can't tell the game — skip
 
+          const qtyRaw    = parseInt(get(vals, colQty) || '1') || 1;
+          const condRaw   = get(vals, colCond).toUpperCase();
+          const cond      = condMap[condRaw] || 'Near Mint';
+          const ltypeRaw  = get(vals, colLtype).toLowerCase();
+          const isPlayset = ltypeRaw === 'playset';
+          const langRaw   = get(vals, colLang).toLowerCase();
+          let   lang      = langRaw === 'japanese' ? 'Japanese'
+                          : langRaw === 'korean' ? 'Korean'
+                          : langRaw.startsWith('asian') ? 'Asian-English' : 'English';
+          // Yu-Gi-Oh: detect language from set code if not given
+          if (game === 'yugioh' && lang === 'English') {
+            const lc = number.match(/-([A-Z]{2})\d/)?.[1];
+            if (lc === 'JP') lang = 'Japanese'; else if (lc === 'KR') lang = 'Korean'; else if (lc === 'AE') lang = 'Asian-English';
+          }
+          const variant   = get(vals, colVar);
+          const priceRaw  = colPrice >= 0 ? (parseFloat(get(vals, colPrice)) || 0) : 0;
+          const customDesc = colDesc >= 0 && get(vals, colDesc) ? get(vals, colDesc) : null;
+
+          const listingType = isPlayset ? 'playset' : 'lot';
+          const finalQty    = isPlayset ? 4 : qtyRaw;
+          const numPlaysets = isPlayset ? Math.max(1, qtyRaw) : 1;
+
+          // Pokemon stores finish in .variant (string); others store rarity in variant.label
           const cardBase = {
-            game:        'onePiece',
+            game,
             number,
-            name:        number,   // placeholder — enriched by Limitless after import
+            name:        number,   // enriched after import
             lang,
-            cond:        'Near Mint',
+            cond,
             qty:         finalQty,
-            price:       priceRaw, // use CSV price if set, else 0 = Claude will fetch
+            price:       priceRaw,
             post:        0,
             listingType,
-            variant:     { suffix: '', label: '' },  // filled by Limitless enrichment
-            imageUrl:    null,
-            customDesc:  colDesc >= 0 && vals[colDesc] && vals[colDesc].trim() ? vals[colDesc].trim() : null
+            customDesc,
           };
-
-          // For playsets, create one listing entry per playset
-          const copies = isPlayset ? numPlaysets : 1;
-          for (let p = 0; p < copies; p++) {
-            imported.push({ ...cardBase });
+          if (game === 'pokemon') {
+            cardBase.variant = variant || 'Normal';
+            cardBase.rarity  = null;
+          } else {
+            cardBase.variant = { suffix: '', label: variant || '' };
           }
+
+          const copies = isPlayset ? numPlaysets : 1;
+          for (let p = 0; p < copies; p++) imported.push({ ...cardBase });
         }
 
         if (imported.length === 0) {
@@ -634,7 +652,7 @@ const CSV = (() => {
         }
 
         // Enrich cards with real names, rarities and images from Limitless
-        enrichFromLimitless(Listings.getAll());
+        enrichImported(Listings.getAll());
 
       } catch(err) {
         const s2 = document.getElementById('save-status');
@@ -646,17 +664,15 @@ const CSV = (() => {
   }
 
   /* ─── Bulk enrich imported cards with Limitless data ─── */
-  async function enrichFromLimitless(importedItems) {
+  async function enrichImported(importedItems) {
     const statusEl = document.getElementById('save-status');
     let enriched = 0;
-    // Work directly on the live items array via Listings methods
     const allItems = Listings.getItems();
-    // Find the newly imported items (they'll be at the end with name === number)
     const startIdx = allItems.length - importedItems.length;
 
     for (let i = 0; i < importedItems.length; i++) {
       const card = allItems[startIdx + i];
-      if (!card || card.game !== 'onePiece') continue;
+      if (!card) continue;
 
       if (statusEl) {
         statusEl.textContent = `Looking up ${i + 1}/${importedItems.length}: ${card.number}...`;
@@ -664,67 +680,76 @@ const CSV = (() => {
       }
 
       try {
-        const langParam = card.lang === 'Japanese' ? 'JP' : 'EN';
-
-        // Try carddetails first for full info
-        let name = null, rarity = null, setName = null, imageUrl = null, cardDetails = null;
-
-        try {
-          const r1 = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, {
-            signal: AbortSignal.timeout(10000)
-          });
-          if (r1.ok) {
-            const d = await r1.json();
-            name       = d.name;
-            rarity     = d.rarity;
-            setName    = d.setName;
-            imageUrl   = d.imageUrl;
-            cardDetails = d;
+        if (card.game === 'onePiece') {
+          const r = await fetch(`/api/carddetails?number=${encodeURIComponent(card.number)}`, { signal: AbortSignal.timeout(10000) });
+          if (r.ok) {
+            const d = await r.json();
+            if (d.name) card.name = d.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+            if (d.rarity && !card.variant?.label) card.variant = { suffix: '', label: d.rarity };
+            if (d.setName && !['deck','latest','card','limitless'].some(w => d.setName.toLowerCase().includes(w))) card.limitlessSetName = d.setName;
+            if (d.imageUrl) card.imageUrl = card.lang === 'Japanese' ? d.imageUrl.replace('_EN.webp','_JP.webp') : d.imageUrl;
+            card.cardDetails = d;
+            if (d.name) enriched++;
           }
-        } catch(e1) { /* fall through */ }
-
-        // Fallback to cardname API if name not found
-        if (!name) {
-          try {
-            const r2 = await fetch(`/api/cardname?number=${encodeURIComponent(card.number)}`, {
-              signal: AbortSignal.timeout(8000)
-            });
-            if (r2.ok) {
-              const d2 = await r2.json();
-              name    = name    || d2.name;
-              rarity  = rarity  || d2.rarity;
-              setName = setName || d2.setName;
-              imageUrl = imageUrl || d2.imageUrl;
+        } else if (card.game === 'riftbound') {
+          const r = await fetch(`/api/riftbound?number=${encodeURIComponent(card.number)}`, { signal: AbortSignal.timeout(10000) });
+          if (r.ok) {
+            const d = await r.json();
+            if (d.name) { card.name = d.name; enriched++; }
+            if (d.rarity && !card.variant?.label) card.variant = { suffix: '', label: d.rarity };
+            if (d.setName) card.limitlessSetName = d.setName;
+            if (d.imageUrl) card.imageUrl = d.imageUrl;
+            card.cardDetails = d;
+          }
+        } else if (card.game === 'yugioh') {
+          const r = await fetch(`/api/yugioh?number=${encodeURIComponent(card.number)}`, { signal: AbortSignal.timeout(10000) });
+          if (r.ok) {
+            const d = await r.json();
+            if (d.name) { card.name = d.name; enriched++; }
+            if (d.rarity && !card.variant?.label) card.variant = { suffix: '', label: d.rarity };
+            if (d.setName) card.limitlessSetName = d.setName;
+            if (d.imageUrl) card.imageUrl = d.imageUrl;
+            if (d.lang) card.lang = d.lang;
+            card.cardDetails = d;
+          }
+        } else if (card.game === 'pokemon') {
+          const numOnly = card.number.split('/')[0];
+          const total   = card.number.split('/')[1];
+          let q = `number:${numOnly}`;
+          if (total) q += ` set.printedTotal:${total}`;
+          const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=5`, { signal: AbortSignal.timeout(10000) });
+          if (r.ok) {
+            const data = await r.json();
+            const c = data.data?.[0];
+            if (c) {
+              card.name          = c.name;
+              card.setId         = c.set.id;
+              card.setName       = c.set.name;
+              card.printedNumber = `${c.number}/${c.set.printedTotal || c.set.total}`;
+              if (!card.rarity) card.rarity = c.rarity || null;
+              card.imageUrl      = c.images?.large || c.images?.small || '';
+              const prices = c.tcgplayer?.prices || {};
+              const v = card.variant;
+              let usd = null;
+              if (v === 'Holo')              usd = prices.holofoil?.market || prices.holofoil?.mid;
+              else if (v === 'Reverse Holo') usd = prices.reverseHolofoil?.market || prices.reverseHolofoil?.mid;
+              else                            usd = (prices.normal || prices.holofoil)?.market || (prices.normal || prices.holofoil)?.mid;
+              card.tcgUsdPrice = usd || null;
+              if (!card.price && usd) card.price = Math.max(1.00, Math.round(usd * 1.5 * 100) / 100);
+              enriched++;
             }
-          } catch(e2) { /* give up */ }
+          }
         }
+      } catch(e) { /* enrichment is best-effort */ }
 
-        // Apply what we found
-        if (name) card.name = name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
-        if (rarity)  card.variant         = { suffix: '', label: rarity };
-        if (setName && !['deck','latest','card','limitless'].some(w => setName.toLowerCase().includes(w))) {
-          card.limitlessSetName = setName;
-        }
-        if (imageUrl) {
-          card.imageUrl = imageUrl.includes('_EN.webp')
-            ? imageUrl.replace('_EN.webp', `_${langParam}.webp`)
-            : imageUrl;
-        }
-        if (cardDetails) card.cardDetails = cardDetails;
-        if (name || rarity) enriched++;
-
-      } catch(e) { console.log('Enrichment failed:', card.number, e.message); }
-
-      // Render after every card so user sees names populating live
       Listings.render();
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
     }
 
     Listings.save();
     Listings.render();
-
     if (statusEl) {
-      statusEl.textContent = `✓ ${enriched} cards updated from Limitless TCG`;
+      statusEl.textContent = `✓ ${enriched} card${enriched !== 1 ? 's' : ''} updated with names, sets & images`;
       setTimeout(() => { statusEl.style.opacity = '0'; }, 4000);
     }
   }

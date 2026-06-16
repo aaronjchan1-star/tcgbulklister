@@ -18,13 +18,15 @@ export default async function handler(req, res) {
 
   const prompt = `You are identifying a trading card from a scanned image. Look carefully at the card and extract these details.
 
-Identify which trading card game it is:
-- "onePiece" — One Piece Card Game. Collector numbers look like OP07-026, EB01-012, ST01-001, PRB01-001
-- "pokemon" — Pokémon TCG. Collector numbers look like 025/198, 6/102, 199/091 (number/setTotal)
-- "yugioh" — Yu-Gi-Oh! Collector numbers look like LOCR-JP001, POTE-EN001, RA01-EN001 (SET-LANG###)
-- "riftbound" — Riftbound (League of Legends). Numbers look like OGN-001, UNL-053, SFD-001
+STEP 1 — Identify the trading card game. Use both the artwork/layout AND the collector number format:
+- "onePiece" — One Piece Card Game. Anime pirate art; DON!! / Life icons; coloured border (red/green/blue/purple/black/yellow). Collector numbers: OP07-026, EB01-012, ST01-001, PRB01-001.
+- "pokemon" — Pokémon TCG. Pokémon creature; HP top-right; energy symbols. Collector numbers use a slash: 025/198, 6/102, 199/091.
+- "yugioh" — Yu-Gi-Oh! Monster/Spell/Trap; ATK/DEF at bottom; Level stars or Link arrows. Collector numbers: LOCR-JP001, POTE-EN001 (SET-LANGUAGE+digits, e.g. -JP/-EN/-KR).
+- "riftbound" — Riftbound (League of Legends). LoL champions/runes; energy & might icons. Collector numbers: OGN-001, UNL-053, SFD-001, VEN-001.
 
-The collector number is usually in a bottom corner of the card. Read it EXACTLY as printed.
+If unsure between One Piece and Riftbound (both use SET-### numbers), use the artwork: anime pirates = One Piece, League of Legends champions = Riftbound.
+
+STEP 2 — Read the collector number EXACTLY as printed (usually a bottom corner).
 
 For the card name, read the title printed on the card.
 
