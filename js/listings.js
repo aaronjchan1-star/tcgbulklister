@@ -373,10 +373,11 @@ const Listings = (() => {
         const v  = item.marketCheck.verdict;
         const mc = item.marketCheck;
         const units = mc.units || 1;
-        const shownPrice = units > 1 && mc.perListing ? mc.perListing : mc.soldEstimate;
+        const isBundle = units > 1 && mc.perListing;
+        const shownPrice = isBundle ? mc.perListing : mc.soldEstimate;
         const matchInfo = mc.matches != null ? `${mc.matches} matched listing${mc.matches !== 1 ? 's' : ''}` : `${mc.found} listings`;
-        const tip = units > 1
-          ? `eBay AU (${matchInfo}): $${mc.soldEstimate}/card × ${units} = $${mc.perListing}`
+        const tip = isBundle
+          ? `eBay AU (${matchInfo}): $${mc.soldEstimate}/card × ${units} cards (playset) = $${mc.perListing}`
           : `eBay AU (${matchInfo}): $${mc.soldEstimate}/card`;
         marketTag = `<span title="${tip}" style="font-size:10px;color:${v.color};white-space:nowrap;cursor:help;">● ${v.text} ($${shownPrice})</span>`;
       }

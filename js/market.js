@@ -38,21 +38,21 @@ const Market = (() => {
     return { label: 'ok', color: 'var(--green)', text: 'In range' };
   }
 
-  // How many single cards a listing contains (playset = 4, lot = qty, single = 1)
+  // How many cards are bundled into ONE sale.
+  // Lots (1x/2x/3x/4x) list each copy individually — eBay's Quantity field holds the
+  // stock count, so the listing PRICE stays per-card. Only a playset bundles 4 cards
+  // together into a single combined-price sale.
   function unitsInListing(card) {
-    if (card.listingType === 'playset') return 4;
-    return card.qty || 1;
+    return card.listingType === 'playset' ? 4 : 1;
   }
 
-  // Build the suggested listing price from a per-card sold estimate.
-  // Multi-card lots/playsets multiply by units, with a small bundle discount
-  // (buyers expect a slight saving when buying several at once).
+  // Build the listing price from a per-card market price.
+  // Single cards and lots → per-card price (unchanged).
+  // Playset → 4 cards sold together, with a small bundle discount.
   function suggestedPrice(perCardSold, units) {
     if (!perCardSold) return null;
     let price = perCardSold * units;
-    if (units >= 4)      price *= 0.92;  // playset / 4x — ~8% bundle saving
-    else if (units === 3) price *= 0.95;
-    else if (units === 2) price *= 0.97;
+    if (units >= 4) price *= 0.92;  // playset — ~8% bundle saving for buying the set
     return Math.max(1.00, Math.round(price * 100) / 100);
   }
 
