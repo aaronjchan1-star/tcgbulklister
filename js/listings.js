@@ -506,5 +506,34 @@ const Listings = (() => {
     render();
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, imageUrl, imageUrlFromFields };
+  // Identity of a listing for merge purposes: same game+number+variant+condition+type
+  function listingKey(c) {
+    const variant = typeof c.variant === 'string' ? c.variant : (c.variant?.label || '');
+    return [c.game, (c.number || '').toUpperCase(), variant, c.cond, c.listingType].join('|');
+  }
+
+  // Add a scanned card, but if an identical listing already exists, bump its
+  // quantity instead of creating a duplicate row. Playsets are never merged
+  // (each playset is its own bundle). Returns { merged, qty }.
+  function addOrIncrement(card, addQty) {
+    const clean = sanitiseCard(card);
+    const inc   = addQty || 1;
+    if (clean.listingType !== 'playset') {
+      const key = listingKey(clean);
+      const existing = items.find(it => listingKey(it) === key);
+      if (existing) {
+        existing.qty = (existing.qty || 1) + inc;
+        save();
+        render();
+        return { merged: true, qty: existing.qty, name: existing.name };
+      }
+    }
+    clean.qty = clean.qty || inc;
+    items.push(clean);
+    save();
+    render();
+    return { merged: false, qty: clean.qty, name: clean.name };
+  }
+
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields };
 })();

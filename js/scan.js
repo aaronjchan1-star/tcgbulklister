@@ -131,14 +131,14 @@ const Scan = (() => {
     }
   }
 
-  const recentScans = {};  // number → timestamp, for duplicate suppression
-  const DUPLICATE_WINDOW_MS = 6000;
+  const recentScans = {};  // number → timestamp, guards against accidental double-fires
+  const ACCIDENTAL_MS = 2500;  // same card within this = one physical card captured twice → skip
 
   // Add a small thumbnail to the live strip as each card comes in from the phone
   function addThumb(imageB64, label, sublabel, state) {
     const strip = document.getElementById('phone-thumbs');
     if (!strip) return;
-    const colors = { added:'var(--green)', review:'var(--amber)', dup:'#60a5fa', fail:'var(--red)' };
+    const colors = { added:'var(--green)', merged:'#a855f7', review:'var(--amber)', dup:'#60a5fa', fail:'var(--red)' };
     const border = colors[state] || 'var(--border-md)';
     const cell = document.createElement('div');
     cell.style.cssText = 'flex:0 0 auto; width:72px; text-align:center;';
@@ -170,12 +170,13 @@ const Scan = (() => {
           continue;
         }
 
-        // Duplicate suppression: same card number captured seconds ago = skip
+        // Accidental double-fire guard: SAME card captured a moment ago = one
+        // physical card hit twice → skip. A genuine 2nd copy slung later still counts.
         const key = `${ident.game}:${(ident.number || '').toUpperCase()}`;
         const now = Date.now();
-        if (recentScans[key] && (now - recentScans[key]) < DUPLICATE_WINDOW_MS) {
-          setPhoneStatus(`⏭ Skipped duplicate of ${ident.number} (just scanned)`, 'busy');
-          addThumb(img.image, '⏭ duplicate', ident.number, 'dup');
+        if (recentScans[key] && (now - recentScans[key]) < ACCIDENTAL_MS) {
+          setPhoneStatus(`⏭ Ignored an accidental re-capture of ${ident.number}`, 'busy');
+          addThumb(img.image, '⏭ re-capture', ident.number, 'dup');
           recentScans[key] = now;
           continue;
         }
@@ -183,10 +184,15 @@ const Scan = (() => {
 
         const enriched = await enrichCard(ident);
         if (enriched.scanConfidence !== 'low') {
-          Listings.addAll([enriched]);
+          const result = Listings.addOrIncrement(enriched);
           if (autoPrice && window.ClaudeAI?.bulkPrice) setTimeout(() => ClaudeAI.bulkPrice(), 400);
-          setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — next card!`, 'ok');
-          addThumb(img.image, '✓ added', `${enriched.number}`, 'added');
+          if (result.merged) {
+            setPhoneStatus(`＋ Another ${enriched.name || enriched.number} — qty now ${result.qty}`, 'ok');
+            addThumb(img.image, `＋ qty ${result.qty}`, `${enriched.number}`, 'merged');
+          } else {
+            setPhoneStatus(`✓ Added ${enriched.name || enriched.number} (${enriched.game}) — next card!`, 'ok');
+            addThumb(img.image, '✓ added', `${enriched.number}`, 'added');
+          }
         } else {
           scannedCards.push(enriched);
           renderResults(autoPrice);
@@ -251,7 +257,7 @@ const Scan = (() => {
       const autoAdd = scannedCards.filter(c => c.scanConfidence !== 'low');
       const review  = scannedCards.filter(c => c.scanConfidence === 'low');
       if (autoAdd.length) {
-        Listings.addAll(autoAdd);
+        autoAdd.forEach(c => Listings.addOrIncrement(c));
         if (autoPrice && window.ClaudeAI?.bulkPrice) setTimeout(() => ClaudeAI.bulkPrice(), 400);
       }
       scannedCards = review;
@@ -442,7 +448,7 @@ const Scan = (() => {
 
   async function confirmAll(autoPrice) {
     if (!scannedCards.length) return;
-    Listings.addAll(scannedCards);
+    scannedCards.forEach(c => Listings.addOrIncrement(c));
     const count = scannedCards.length;
     clearResults();
 
