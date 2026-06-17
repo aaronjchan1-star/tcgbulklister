@@ -431,6 +431,31 @@ const Listings = (() => {
     return !BAD_SET_WORDS.some(w => lower.includes(w));
   }
 
+  // Options for the inline rarity/finish picker
+  const PK_FINISHES = ['Normal','Holo','Reverse Holo','Poke Ball','Master Ball'];
+  function variantOptionsHtml(item) {
+    if (item.game === 'pokemon') {
+      const cur = typeof item.variant === 'string' ? item.variant : 'Normal';
+      return PK_FINISHES.map(f => `<option value="${f}" ${f === cur ? 'selected' : ''}>${f}</option>`).join('');
+    }
+    // Other games: rarity list from RARITIES (loaded globally)
+    const cur = item.variant?.label || '';
+    const list = (typeof RARITIES !== 'undefined' && RARITIES[item.game]) ? RARITIES[item.game] : [{value:cur,label:cur||'—'}];
+    let opts = list.map(o => `<option value="${o.value}" ${o.value === cur ? 'selected' : ''}>${o.label}</option>`).join('');
+    if (cur && !list.some(o => o.value === cur)) opts = `<option value="${cur}" selected>${cur}</option>` + opts;
+    return opts;
+  }
+
+  function setCardVariant(id, value) {
+    const it = items.find(x => x._id === id);
+    if (!it) return;
+    if (it.game === 'pokemon') it.variant = value;
+    else it.variant = { suffix: it.variant?.suffix || '', label: value };
+    it.needsRarityCheck = false;   // user has confirmed it
+    save();
+    render();
+  }
+
   function subLabel(item) {
     if (item.game === 'pokemon') {
       const v = item.variant && item.variant !== 'Normal' ? ` · ${item.variant}` : '';
@@ -571,7 +596,10 @@ const Listings = (() => {
           <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
           <span class="mono">${displayNumber(l)}</span>
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
-          <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
+          <span class="variant-cell">
+            <span class="set-tiny" title="${subLabel(l)}">${subLabel(l)}</span>
+            <select class="variant-inline ${l.needsRarityCheck ? 'flagged' : ''}" onchange="event.stopPropagation(); Listings.setCardVariant('${l._id}', this.value)" onclick="event.stopPropagation()" title="Set rarity / finish">${variantOptionsHtml(l)}</select>
+          </span>
           <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Lightly Played' ? 'LP' : l.cond === 'Moderately Played' ? 'MP' : l.cond}</span>
           <span class="listing-type-label ${listingTypeCss(l)} ${(l.qty>1 && l.listingType==='lot')?'qty-multi':''}">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
@@ -634,6 +662,17 @@ const Listings = (() => {
   }
 
   function updateStats() {
+    // Flagged-for-review banner
+    const flagged = items.filter(l => l.needsRarityCheck).length;
+    const fb = document.getElementById('flag-banner');
+    if (fb) {
+      if (flagged > 0) {
+        fb.style.display = 'block';
+        fb.innerHTML = `⚠️ <strong>${flagged}</strong> scanned card${flagged !== 1 ? 's' : ''} need a quick finish/rarity check — look for the amber dropdowns and confirm Poké Ball / Master Ball / Holo etc.`;
+      } else {
+        fb.style.display = 'none';
+      }
+    }
     const totalUnits = items.reduce((s, l) => s + l.qty, 0);
     const totalVal   = items.reduce((s, l) => s + (l.price || 0) * l.qty, 0);
     const unpriced   = items.filter(l => !l.price || l.price === 0).length;
@@ -685,5 +724,5 @@ const Listings = (() => {
     return { merged: false, qty: clean.qty, name: clean.name };
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, setCardVariant };
 })();

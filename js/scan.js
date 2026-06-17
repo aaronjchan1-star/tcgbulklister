@@ -359,6 +359,14 @@ const Scan = (() => {
       variant:     ident.variant && ident.variant !== 'unknown' ? ident.variant : 'Normal'
     };
 
+    // Flag for a quick finish/rarity check when the type is ambiguous from a scan:
+    // - Pokémon foil finishes (Holo / Reverse / Poké Ball / Master Ball) are easily confused
+    // - anything the model wasn't confident about
+    const foilFinish = ['Holo','Reverse Holo','Poke Ball','Master Ball'].includes(base.variant);
+    if ((ident.game === 'pokemon' && (foilFinish || ident.variant === 'unknown')) || ident.confidence === 'low') {
+      base.needsRarityCheck = true;
+    }
+
     try {
       if (ident.game === 'onePiece') {
         const r = await fetch(`/api/carddetails?number=${encodeURIComponent(base.number)}`);
