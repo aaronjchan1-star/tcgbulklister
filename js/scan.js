@@ -164,6 +164,11 @@ const Scan = (() => {
       setPhoneStatus(`📱 Scanning card ${phoneReceived} from phone…`, 'busy');
       try {
         const ident = await identifyCard(img.image, img.mediaType || 'image/jpeg');
+        if (ident.cardBack) {
+          setPhoneStatus(`Saw a card back — flip it face-up and capture again`, 'off');
+          addThumb(img.image, '↩ card back', 'flip it', 'fail');
+          continue;
+        }
         if (!ident.number || ident.error) {
           setPhoneStatus(`Couldn't read that card — reposition and capture again`, 'off');
           addThumb(img.image, '✗ unreadable', 'try again', 'fail');
@@ -237,6 +242,7 @@ const Scan = (() => {
         const { base64, mediaType } = await fileToBase64(file);
         const ident = await identifyCard(base64, mediaType);
 
+        if (ident.cardBack) { failed++; statusEl.textContent = `Skipped a card back (${file.name})`; continue; }
         if (!ident.number || ident.error) { failed++; continue; }
 
         // Enrich with the right game API
@@ -299,6 +305,18 @@ const Scan = (() => {
     });
   }
 
+  // Infer the game purely from the collector-number format (very reliable).
+  function gameFromNumber(num) {
+    const n = (num || '').toUpperCase().trim();
+    if (!n) return null;
+    if (n.includes('/')) return 'pokemon';                      // 025/198
+    if (/-[A-Z]{2}\d/.test(n)) return 'yugioh';                 // LOCR-JP001
+    const prefix = n.split('-')[0];
+    if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
+    if (/^(OP\d|EB\d|ST\d|PRB|P)/.test(prefix)) return 'onePiece';
+    return null;
+  }
+
   async function identifyCard(base64, mediaType) {
     const resp = await fetch('/api/scan', {
       method: 'POST',
@@ -309,7 +327,19 @@ const Scan = (() => {
       const err = await resp.json().catch(() => ({}));
       throw new Error(err.error || `Scan failed ${resp.status}`);
     }
-    return resp.json();
+    const ident = await resp.json();
+
+    // Card back / unreadable → signal caller to skip
+    if (ident.cardBack) return { cardBack: true };
+
+    // Cross-validate the game against the number format. The number format is
+    // far more reliable than the visual guess, so it wins when unambiguous.
+    const byNumber = gameFromNumber(ident.number);
+    if (byNumber && byNumber !== ident.game) {
+      ident.game = byNumber;
+      ident.gameCorrected = true;
+    }
+    return ident;
   }
 
   /* ── Enrich identified card via the correct game API ── */

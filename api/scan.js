@@ -26,18 +26,27 @@ STEP 1 — Identify the trading card game. Use both the artwork/layout AND the c
 
 If unsure between One Piece and Riftbound (both use SET-### numbers), use the artwork: anime pirates = One Piece, League of Legends champions = Riftbound.
 
+STEP 0 — Is this the FRONT of a single trading card? If you see a card BACK (the patterned reverse — e.g. the blue/brown Pokémon back, the brown Yu-Gi-Oh back, the One Piece back), or there is no card, or the image is too blurry to read, set "cardBack" to true and stop — do not guess a card.
+
 STEP 2 — Read the collector number EXACTLY as printed (usually a bottom corner).
 
 For the card name, read the title printed on the card.
 
-For variant/finish, look for visual cues:
-- Pokémon: is it Holo (shiny foil on the artwork), Reverse Holo (foil on everything except artwork), or Normal (no foil)? If you see a special pattern (Poké Ball or Master Ball symbols repeated in the foil), note "Poke Ball" or "Master Ball".
-- For other games, note if it's an alternate art or special rarity if obvious.
+STEP 3 — Variant / finish (look carefully at the FOIL PATTERN, not just the art):
+- Pokémon finish:
+  - "Master Ball" — the card's foil shows a repeating pattern of MASTER BALL symbols (purple ball with a pink M / two pink dots) tiled across the card. Look closely at the holo texture. Prismatic Evolutions has these.
+  - "Poke Ball" — the foil shows a repeating pattern of POKÉ BALL symbols (red-and-white balls) tiled across the card.
+  - "Reverse Holo" — foil covers everything EXCEPT the main artwork box.
+  - "Holo" — foil shimmer inside the artwork box only.
+  - "Normal" — no foil/shine.
+  Tilt-pattern stamps (Poké Ball / Master Ball) are subtle: if the holofoil is made of small repeated ball icons, it IS a Poké Ball or Master Ball variant — don't default those to Reverse Holo.
+- Other games: note alternate art or special rarity only if obvious, else "unknown".
 
 Respond ONLY with JSON, no other text:
-{"game":"onePiece|pokemon|yugioh|riftbound","number":"exact collector number","name":"card name","variant":"Normal|Holo|Reverse Holo|Poke Ball|Master Ball|Alt Art|unknown","confidence":"high|medium|low"}
+{"cardBack":false,"game":"onePiece|pokemon|yugioh|riftbound","number":"exact collector number","name":"card name","variant":"Normal|Holo|Reverse Holo|Poke Ball|Master Ball|Alt Art|unknown","confidence":"high|medium|low"}
 
-If you cannot read the card clearly, set confidence to "low" and provide your best guess.`;
+If it's a card back / not a readable card, respond exactly: {"cardBack":true}
+If you can see a card but can't read it clearly, set confidence to "low" and give your best guess.`;
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {

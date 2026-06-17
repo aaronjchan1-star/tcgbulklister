@@ -110,11 +110,19 @@ const Listings = (() => {
 
   function imageUrl(item) {
     if (item.imageUrl) return item.imageUrl;
-    if (item.game === 'pokemon') return `${PKM_IMG}/${item.setId}/${item.number}_hires.png`;
-    const set     = item.number.split('-')[0].toUpperCase();
+    if (item.listingType === 'bulk') return '';
+    if (item.game === 'pokemon') {
+      // Only build a URL when we actually resolved a set id + numeric card number
+      const num = (item.number || '').split('/')[0];
+      if (item.setId && num) return `${PKM_IMG}/${item.setId}/${num}_hires.png`;
+      return '';  // unresolved → let onerror hide it instead of loading a wrong image
+    }
+    const num = item.number || '';
+    if (!num.includes('-')) return '';
+    const set     = num.split('-')[0].toUpperCase();
     const suffix  = item.variant?.suffix || '';
     const langTag = item.lang === 'Japanese' ? 'JP' : 'EN';
-    return `${OP_CDN}/${set}/${item.number}${suffix}_${langTag}.webp`;
+    return `${OP_CDN}/${set}/${num}${suffix}_${langTag}.webp`;
   }
 
   function imageUrlFromFields(game) {
@@ -442,13 +450,11 @@ const Listings = (() => {
   }
 
   function listingTypeLabel(item) {
+    if (item.listingType === 'bulk') return `Bulk (${item.bulkCount || '?'})`;
     if (item.listingType === 'playset' || item.variant?.label === 'Playset') return 'Playset (4x)';
     if (item.listingType === 'lot') {
       const q = item.qty || 1;
-      if (q === 1) return 'Single';
-      if (q === 2) return 'Pair';
-      if (q === 3) return 'Triple';
-      return `${q}x`;
+      return q > 1 ? `Qty ${q}` : 'Single';
     }
     return 'Single';
   }
@@ -567,7 +573,7 @@ const Listings = (() => {
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="muted" title="${subLabel(l)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${subLabel(l)}</span>
           <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Lightly Played' ? 'LP' : l.cond === 'Moderately Played' ? 'MP' : l.cond}</span>
-          <span class="listing-type-label ${listingTypeCss(l)}">${listingTypeLabel(l)}</span>
+          <span class="listing-type-label ${listingTypeCss(l)} ${(l.qty>1 && l.listingType==='lot')?'qty-multi':''}">${listingTypeLabel(l)}</span>
           ${priceCell(l, i)}
           ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>

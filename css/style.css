@@ -873,3 +873,10 @@ input[type=text]:hover, input[type=number]:hover, select:hover { background: #24
 
 .bulk-row { border-color: #3a2e5a !important; background: linear-gradient(180deg,#1d1a28,#1a1726) !important; }
 .type-bulk { background: #5b21b6 !important; color: #ede9fe !important; }
+
+/* Multi-quantity listing — make qty pop so duplicate scans are obvious */
+.listing-type-label.qty-multi {
+  background: linear-gradient(135deg,#0891b2,#22d3ee) !important;
+  color: #002b36 !important;
+  font-weight: 700 !important;
+}
