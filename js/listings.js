@@ -476,7 +476,8 @@ const Listings = (() => {
   function subLabel(item) {
     if (item.game === 'pokemon') {
       const v = item.variant && item.variant !== 'Normal' ? ` · ${item.variant}` : '';
-      return (item.setName || item.setId) + v;
+      const set = item.setName || item.setId || (item.number ? `#${item.number}` : 'Pokémon');
+      return set + v;
     }
     const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
     // Only use Limitless set name if it passes validation

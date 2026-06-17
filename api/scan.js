@@ -32,14 +32,14 @@ STEP 2 — Read the collector number EXACTLY as printed (usually a bottom corner
 
 For the card name, read the title printed on the card.
 
-STEP 3 — Variant / finish (look carefully at the FOIL PATTERN, not just the art):
+STEP 3 — Variant / finish. Be CONSERVATIVE: only call something a ball pattern if you can clearly see the tiled ball icons. When unsure, say "Holo" or "unknown" rather than guessing a ball pattern.
 - Pokémon finish:
-  - "Master Ball" — the card's foil shows a repeating pattern of MASTER BALL symbols (purple ball with a pink M / two pink dots) tiled across the card. Look closely at the holo texture. Prismatic Evolutions has these.
-  - "Poke Ball" — the foil shows a repeating pattern of POKÉ BALL symbols (red-and-white balls) tiled across the card.
+  - "Master Ball" — ONLY if the foil is visibly made of many small repeating MASTER BALL icons (purple ball with a pink M) tiled across the whole card. This is rare. Do NOT guess this just because the card looks shiny.
+  - "Poke Ball" — ONLY if the foil is visibly made of many small repeating POKÉ BALL icons (red-and-white balls) tiled across the whole card.
   - "Reverse Holo" — foil covers everything EXCEPT the main artwork box.
-  - "Holo" — foil shimmer inside the artwork box only.
-  - "Normal" — no foil/shine.
-  Tilt-pattern stamps (Poké Ball / Master Ball) are subtle: if the holofoil is made of small repeated ball icons, it IS a Poké Ball or Master Ball variant — don't default those to Reverse Holo.
+  - "Holo" — foil shimmer in the artwork; full-art / illustration / secret-rare cards are "Holo".
+  - "Normal" — no foil.
+  IMPORTANT: A full-art card, an "ex" with full-art treatment, a Trainer full art, or any card whose number is ABOVE the set total (a secret rare) is NOT a ball-pattern card — call those "Holo", never "Master Ball" or "Poke Ball". Ball patterns only appear on ordinary cards, not secret rares.
 - Other games: note alternate art or special rarity only if obvious, else "unknown".
 
 Respond ONLY with JSON, no other text:

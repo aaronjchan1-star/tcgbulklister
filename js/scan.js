@@ -400,32 +400,65 @@ const Scan = (() => {
           base.variant     = { suffix: '', label: d.rarity || '' };
         }
       } else if (ident.game === 'pokemon') {
-        // Pokemon: search pokemontcg.io by number
-        const numOnly = base.number.split('/')[0];
+        // Pokemon: search pokemontcg.io. The API stores numbers WITHOUT leading
+        // zeros (e.g. "51", not "051"), so strip them or the lookup returns nothing.
+        const rawNum  = base.number.split('/')[0];
+        const numOnly = rawNum.replace(/^0+/, '') || rawNum;   // "051" → "51"
         const total   = base.number.split('/')[1];
-        let q = `number:${numOnly}`;
-        if (total) q += ` set.printedTotal:${total}`;
-        const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=5`);
-        if (r.ok) {
+        const numericNum = parseInt(numOnly, 10);
+        const numericTotal = total ? parseInt(total, 10) : null;
+
+        async function pkmnSearch(query) {
+          const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=10`);
+          if (!r.ok) return null;
           const data = await r.json();
-          const c = data.data?.[0];
-          if (c) {
-            base.name          = c.name;
-            base.setId         = c.set.id;
-            base.setName       = c.set.name;
-            base.printedNumber = `${c.number}/${c.set.printedTotal || c.set.total}`;
-            base.rarity        = c.rarity || null;
-            base.imageUrl      = c.images?.large || c.images?.small || '';
-            // pull tcgplayer price for the scanned variant
-            const prices = c.tcgplayer?.prices || {};
-            const v = base.variant;
-            let usd = null;
-            if (v === 'Holo')              usd = prices.holofoil?.market || prices.holofoil?.mid;
-            else if (v === 'Reverse Holo') usd = prices.reverseHolofoil?.market || prices.reverseHolofoil?.mid;
-            else                            usd = (prices.normal || prices.holofoil)?.market || (prices.normal || prices.holofoil)?.mid;
-            base.tcgUsdPrice = usd || null;
-            if (usd) base.price = Math.max(1.00, usd * 1.5);
+          return data.data || [];
+        }
+
+        // Try number + set total first, then fall back to number alone
+        let results = total ? await pkmnSearch(`number:${numOnly} set.printedTotal:${total}`) : null;
+        if (!results || !results.length) results = await pkmnSearch(`number:${numOnly}`);
+        const c = (results && results[0]) || null;
+
+        if (c) {
+          base.name          = c.name;
+          base.setId         = c.set.id;
+          base.setName       = c.set.name;
+          base.printedNumber = `${c.number}/${c.set.printedTotal || c.set.total}`;
+          base.rarity        = c.rarity || null;
+          base.imageUrl      = c.images?.large || c.images?.small || '';
+
+          // ── Sanity-check the scanned FINISH against the card's identity ──
+          // Secret rares (number above the set total) and special-rarity cards
+          // (Illustration/Special Illustration/Hyper/Ultra/Full Art) are NEVER
+          // Poké Ball / Master Ball pattern cards — those only exist for the
+          // normal-numbered cards. Correct an over-eager ball-pattern guess.
+          const setTotal = c.set.printedTotal || c.set.total || numericTotal || 999;
+          const isSecret = numericNum && setTotal && numericNum > setTotal;  // e.g. 174/131
+          if ((base.variant === 'Master Ball' || base.variant === 'Poke Ball') && isSecret) {
+            // A card numbered above the set total is a secret rare (full art / SIR /
+            // hyper rare) — it cannot be a Poké Ball / Master Ball pattern card.
+            base.variant = 'Holo';
           }
+          // Any Pokémon ball-pattern guess is worth a human glance (foil patterns
+          // are easy to misread), so flag it whether kept or corrected.
+          if (['Master Ball','Poke Ball','Holo','Reverse Holo'].includes(base.variant)) {
+            base.needsRarityCheck = true;
+          }
+
+          // tcgplayer price for the scanned finish
+          const prices = c.tcgplayer?.prices || {};
+          const v = base.variant;
+          let usd = null;
+          if (v === 'Holo')              usd = prices.holofoil?.market || prices.holofoil?.mid;
+          else if (v === 'Reverse Holo') usd = prices.reverseHolofoil?.market || prices.reverseHolofoil?.mid;
+          else                            usd = (prices.normal || prices.holofoil)?.market || (prices.normal || prices.holofoil)?.mid;
+          base.tcgUsdPrice = usd || null;
+          if (usd) base.price = Math.max(1.00, Math.round(usd * 1.5 * 100) / 100);
+        } else {
+          // Not found — leave a readable set hint rather than "undefined"
+          base.setName = null;
+          base.needsRarityCheck = true;
         }
       }
     } catch(e) { /* enrichment optional — keep base */ }
