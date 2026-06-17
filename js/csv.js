@@ -367,6 +367,83 @@ const CSV = (() => {
     return parts.join('');
   }
 
+  function variationOptionLabel(ci) {
+    // Unique, buyer-friendly option: "Luffy OP07-026" (+ condition if not NM)
+    let label = `${cleanName(ci.name || '')} ${ci.printedNumber || ci.number}`.trim();
+    if (ci.cond && ci.cond !== 'Near Mint') label += ` (${ci.cond === 'Lightly Played' ? 'LP' : ci.cond === 'Moderately Played' ? 'MP' : ci.cond})`;
+    // eBay variation option values must be <= 65 chars and not contain ; or |
+    return label.replace(/[;|]/g, ' ').slice(0, 64);
+  }
+
+  function buildVariationsRows(card) {
+    const items   = card.variationItems || [];
+    const setName = card.setName || getSetName({ game: card.game, number: items[0] ? items[0].number : '' }) || card.setKey || '';
+    const gLabel  = { onePiece:'One Piece', pokemon:'Pokémon', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh!' }[card.game] || '';
+    let title = `${setName} ${gLabel} Singles - Pick Your Card`.replace(/\s{2,}/g,' ').trim();
+    if (title.length > 80) title = title.slice(0, 80);
+
+    // Unique option labels (dedupe collisions by appending a counter)
+    const seen = {};
+    const opts = items.map(ci => {
+      let o = variationOptionLabel(ci);
+      if (seen[o]) { seen[o]++; o = `${o.slice(0, 60)} #${seen[o]}`; } else seen[o] = 1;
+      ci.__opt = o;
+      return o;
+    });
+
+    const attr = 'Card';
+    const relMaster = `${attr}=${opts.join(';')}`;
+
+    // Description: list every card with its condition
+    const listHtml = items.map(ci => {
+      const v = ci.variant ? ` — ${esc2(ci.variant)}` : '';
+      return `<li><strong>${esc2(ci.__opt)}</strong>${v} · ${esc2(ci.cond || 'NM')}</li>`;
+    }).join('');
+    const desc = `<div style="font-family:Arial,sans-serif;max-width:600px;">`
+      + `<h2>${esc2(setName)} ${esc2(gLabel)} Singles</h2>`
+      + `<p>Select the card you want from the drop-down menu. Each card is sold individually.</p>`
+      + `<ul>${listHtml}</ul>`
+      + `<p>All cards are genuine and as described. Combined postage on multiple cards.</p>`
+      + `</div>`;
+
+    const cat  = CATEGORY[card.game] || '183454';
+    const post = card.post || 0;
+    const firstImg = items.find(c => c.imageUrl)?.imageUrl || '';
+
+    // Master row: Relationship EMPTY, StartPrice EMPTY, Quantity EMPTY, RelationshipDetails = full option list
+    const master = [
+      'Add', title, cat, '4000',
+      '',                 // StartPrice empty (item-level ignored for variations)
+      '',                 // Quantity empty
+      'FixedPriceItem', 'GTC',
+      desc, firstImg,
+      'Flat', 'AU_Regular',
+      post === 0 ? '0.00' : post.toFixed(2),
+      post === 0 ? '1' : '0',
+      'Sydney, NSW', '3', 'ReturnsNotAccepted',
+      ebayGame(card.game), ebayCardCondition(card.cond || 'Near Mint'),
+      '',                 // Relationship EMPTY in master
+      relMaster           // RelationshipDetails = Card=opt1;opt2;...
+    ].map(esc).join(',');
+
+    // Child rows: Relationship = Variation, own price/qty/pic
+    const children = items.map(ci => [
+      'Add', '', '', '',
+      Math.max(1.00, ci.price || 0).toFixed(2),   // per-card price
+      ci.qty || 1,                                 // per-card quantity
+      '', '',
+      '',                                          // no per-variation description
+      ci.imageUrl || '',
+      '', '', '', '',
+      '', '', '',
+      '', '',
+      'Variation',                                 // Relationship
+      `${attr}=${ci.__opt}`                        // RelationshipDetails = Card=thisOption
+    ].map(esc).join(','));
+
+    return [master, ...children];
+  }
+
   function buildBulkRow(card) {
     const gameNames = { onePiece:'One Piece Card Game', pokemon:'Pokémon TCG', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh! TCG' };
     const condWord  = card.cond === 'Mixed' ? '' : ` ${card.cond}`;
@@ -487,11 +564,15 @@ const CSV = (() => {
     const allRows = [HEADERS.join(',')];
     [...normItems].sort((a, b) => {
       // Bulk lots sort to the end
-      if ((a.listingType === 'bulk') !== (b.listingType === 'bulk')) return a.listingType === 'bulk' ? 1 : -1;
+      const ga = (a.listingType==='bulk'||a.listingType==='variations'), gb = (b.listingType==='bulk'||b.listingType==='variations');
+      if (ga !== gb) return ga ? 1 : -1;
       const sa = (a.number || '').split('-')[0], sb = (b.number || '').split('-')[0];
       if (sa !== sb) return sa.localeCompare(sb);
       return (parseInt((a.number||'').split('-')[1]) || 0) - (parseInt((b.number||'').split('-')[1]) || 0);
-    }).forEach(c => allRows.push(buildStandaloneLotRow(c)));
+    }).forEach(c => {
+      if (c.listingType === 'variations') allRows.push(...buildVariationsRows(c));
+      else allRows.push(buildStandaloneLotRow(c));
+    });
 
     const csv  = allRows.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

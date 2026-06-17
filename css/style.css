@@ -922,3 +922,13 @@ input[type=text]:hover, input[type=number]:hover, select:hover { background: #24
 @media (max-width: 640px) {
   .variant-inline { font-size: 14px; padding: 6px; }  /* easier tap target */
 }
+
+/* Variations listing */
+.btn-create-vary {
+  padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: linear-gradient(135deg,#0891b2,#06b6d4); color: #fff; border: none;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.btn-create-vary:disabled { opacity: 0.4; cursor: default; }
+.vary-row { border-color: #155e75 !important; background: linear-gradient(180deg,#0e2a32,#0c2128) !important; }
+.type-vary { background: #0e7490 !important; color: #cffafe !important; }

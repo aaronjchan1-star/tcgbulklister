@@ -51,10 +51,27 @@ const Listings = (() => {
 
   function clearSelection() { selectedIds.clear(); render(); }
 
+  // The set a card belongs to (for grouping into variations listings)
+  function setKeyOf(c) {
+    if (c.game === 'pokemon') return c.setId || c.setName || '';
+    return (c.number || '').split('-')[0].toUpperCase();   // OP09, EB04, LOCR, UNL...
+  }
+  function setNameOf(c) {
+    if (c.setName) return c.setName;
+    if (isValidSetName(c.limitlessSetName)) return c.limitlessSetName;
+    return (typeof SET_NAMES !== 'undefined' && SET_NAMES[setKeyOf(c)]) || setKeyOf(c);
+  }
+
   function getSelectionInfo() {
-    const sel = items.filter(it => selectedIds.has(it._id) && it.listingType !== 'bulk');
+    const sel = items.filter(it => selectedIds.has(it._id) && it.listingType !== 'bulk' && it.listingType !== 'variations');
     const games = [...new Set(sel.map(c => c.game))];
-    return { count: sel.length, games, game: games.length === 1 ? games[0] : null, cards: sel };
+    const sets  = [...new Set(sel.map(c => c.game + '|' + setKeyOf(c)))];
+    return {
+      count: sel.length,
+      games, game: games.length === 1 ? games[0] : null,
+      sets,  set:  sets.length === 1 ? sets[0] : null,
+      cards: sel
+    };
   }
 
   // Distinct games currently present (for quick-select chips)
@@ -566,13 +583,38 @@ const Listings = (() => {
       renderSelectionBar();
       list.innerHTML = items.map((l, i) => {
         const isBulk = l.listingType === 'bulk';
-        const selectable = selectMode && !isBulk;
+        const isVary = l.listingType === 'variations';
+        const isGroup = isBulk || isVary;
+        const selectable = selectMode && !isGroup;
         const sel = selectedIds.has(l._id);
         const rowClick = selectable ? `onclick="Listings.toggleSelect('${l._id}')"` : '';
         const rowCls = `listing-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''} ${selectable ? 'selectable' : ''} ${sel ? 'selected' : ''}`;
-        const checkbox = selectMode && !isBulk
+        const checkbox = selectMode && !isGroup
           ? `<span class="sel-check">${sel ? '&#x2713;' : ''}</span>`
           : '';
+        if (isVary) {
+          const vi = l.variationItems || [];
+          const prices = vi.map(c => c.price || 0).filter(p => p > 0);
+          const lo = prices.length ? Math.min(...prices) : 0;
+          const hi = prices.length ? Math.max(...prices) : 0;
+          const priceRange = prices.length
+            ? (lo === hi ? `$${lo.toFixed(2)}` : `$${lo.toFixed(2)}–$${hi.toFixed(2)}`)
+            : '<span style="color:var(--amber)">price the cards first</span>';
+          return `
+            <div class="listing-row vary-row ${prices.length < vi.length ? 'row-unpriced' : ''}">
+              <span style="font-size:20px;">&#x1F500;</span>
+              <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
+              <span class="mono">VARS</span>
+              <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
+              <span class="muted" title="${vi.map(c=>c.number).join(', ')}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.variationCount} cards · buyer picks</span>
+              <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond}</span>
+              <span class="listing-type-label type-vary">Variations</span>
+              <span style="font-size:12px;">${priceRange}</span>
+              ${ebayLinkCell(l)}
+              <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
+              <button class="remove-btn" onclick="Listings.remove(${i})" title="Ungroup / remove">&#x2715;</button>
+            </div>`;
+        }
         if (isBulk) {
           return `
             <div class="listing-row bulk-row ${(!l.price || l.price === 0) ? 'row-unpriced' : ''}">
@@ -618,6 +660,53 @@ const Listings = (() => {
     updateStats();
   }
 
+  function createVariationsFromSelected() {
+    const info = getSelectionInfo();
+    if (info.count < 2) return { error: 'Select at least 2 cards.' };
+    if (!info.game)     return { error: 'A listing must be a single game. You have ' + info.games.map(g => GAME_LABELS[g] || g).join(' + ') + ' selected.' };
+    if (!info.set)      return { error: 'Variations must all be from the SAME set. You have cards from ' + info.sets.length + ' different sets selected.' };
+    if (info.count > 250) return { error: 'eBay allows up to ~250 variations per listing — select fewer.' };
+
+    const setName = setNameOf(info.cards[0]);
+    const totalQty = info.cards.reduce((s, c) => s + (c.qty || 1), 0);
+
+    const v = sanitiseCard({
+      game:        info.game,
+      listingType: 'variations',
+      variationItems: info.cards.map(c => ({
+        number:        c.number,
+        name:          c.name,
+        cond:          c.cond,
+        variant:       typeof c.variant === 'string' ? c.variant : (c.variant?.label || ''),
+        price:         c.price || 0,
+        qty:           c.qty || 1,
+        imageUrl:      c.imageUrl || '',
+        setId:         c.setId,
+        printedNumber: c.printedNumber,
+        lang:          c.lang
+      })),
+      setKey:         setKeyOf(info.cards[0]),
+      setName,
+      variationCount: info.count,
+      name:           `${setName} Singles`,
+      number:         '',
+      cond:           info.cards[0].cond || 'Near Mint',
+      qty:            totalQty,
+      price:          0,
+      post:           info.cards[0].post || 0,
+      lang:           'English',
+      variant:        { suffix: '', label: '' }
+    });
+
+    items = items.filter(it => !selectedIds.has(it._id));
+    items.push(v);
+    selectedIds.clear();
+    selectMode = false;
+    save();
+    render();
+    return { ok: true, count: info.count, set: setName };
+  }
+
   function renderSelectionBar() {
     const bar = document.getElementById('selection-bar');
     if (!bar) return;
@@ -629,11 +718,18 @@ const Listings = (() => {
       `<button class="sel-chip" onclick="Listings.selectAllGame('${g}')">+ all ${GAME_LABELS[g] || g}</button>`
     ).join('');
 
-    let msg, canCreate = false;
-    if (info.count === 0)       msg = 'Tap cards to select them for a bulk lot.';
-    else if (info.count === 1)  msg = '1 selected — pick at least 2 to bundle.';
-    else if (!info.game)        msg = `<span style="color:var(--amber)">${info.count} selected across ${info.games.length} games — a bulk lot must be one game.</span>`;
-    else { msg = `<strong>${info.count}</strong> ${GAME_LABELS[info.game]} cards selected`; canCreate = true; }
+    let msg, canBulk = false, canVary = false;
+    if (info.count === 0)       msg = 'Tap cards to select them.';
+    else if (info.count === 1)  msg = '1 selected — pick at least 2.';
+    else if (!info.game)        msg = `<span style="color:var(--amber)">${info.count} selected across ${info.games.length} games — listings must be one game.</span>`;
+    else {
+      canBulk = true;
+      canVary = !!info.set;   // variations require a single set
+      const setNote = info.set
+        ? `, same set ✓`
+        : `, <span style="color:var(--amber)">${info.sets.length} sets — variations need one set</span>`;
+      msg = `<strong>${info.count}</strong> ${GAME_LABELS[info.game]} cards${setNote}`;
+    }
 
     bar.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -641,10 +737,22 @@ const Listings = (() => {
         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-left:auto;">
           ${chips}
           <button class="sel-chip" onclick="Listings.clearSelection()">Clear</button>
-          <button class="btn-create-bulk" ${canCreate ? '' : 'disabled'} onclick="Listings.promptCreateBulk()">📦 Create bulk lot</button>
+          <button class="btn-create-bulk" ${canBulk ? '' : 'disabled'} onclick="Listings.promptCreateBulk()">📦 Bulk lot</button>
+          <button class="btn-create-vary" ${canVary ? '' : 'disabled'} onclick="Listings.promptCreateVariations()" title="${canVary ? 'One listing, buyer picks the card' : 'Select cards from a single set'}">🔀 Variations listing</button>
           <button class="sel-chip" onclick="Listings.toggleSelectMode()">Done</button>
         </div>
       </div>`;
+  }
+
+  function promptCreateVariations() {
+    const result = createVariationsFromSelected();
+    const s = document.getElementById('save-status');
+    if (result.error) {
+      if (s) { s.textContent = result.error; s.style.opacity = '1'; setTimeout(()=>s.style.opacity='0', 5000); }
+    } else if (s) {
+      s.textContent = `Created a ${result.count}-card "${result.set}" variations listing — buyers pick the card.`;
+      s.style.opacity = '1'; setTimeout(()=>s.style.opacity='0', 5000);
+    }
   }
 
   function promptCreateBulk() {
@@ -724,5 +832,5 @@ const Listings = (() => {
     return { merged: false, qty: clean.qty, name: clean.name };
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, setCardVariant };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, promptCreateVariations, setCardVariant };
 })();
