@@ -463,6 +463,23 @@ const Listings = (() => {
     return opts;
   }
 
+  function adjustQty(id, delta) {
+    const it = items.find(x => x._id === id);
+    if (!it || it.listingType === 'playset' || it.listingType === 'bulk' || it.listingType === 'variations') return;
+    it.qty = Math.max(1, (it.qty || 1) + delta);
+    save();
+    render();
+  }
+
+  function setQty(id, value) {
+    const it = items.find(x => x._id === id);
+    if (!it) return;
+    const q = Math.max(1, parseInt(value) || 1);
+    it.qty = q;
+    save();
+    render();
+  }
+
   function setCardVariant(id, value) {
     const it = items.find(x => x._id === id);
     if (!it) return;
@@ -490,6 +507,18 @@ const Listings = (() => {
   function ebayLinkCell(item) {
     const url = API.getEbayUrl(item);
     return `<a href="${url}" target="_blank" class="ebay-search-btn" title="Search eBay AU sold listings">eBay ↗</a>`;
+  }
+
+  function qtyCell(l) {
+    // Lots get an inline +/- stepper so multiple copies are easy to set.
+    if (l.listingType === 'lot') {
+      return `<span class="qty-stepper ${l.qty > 1 ? 'qty-multi' : ''}">
+        <button class="qty-btn" onclick="event.stopPropagation(); Listings.adjustQty('${l._id}', -1)" title="One fewer">&minus;</button>
+        <span class="qty-num" title="Quantity in stock">${l.qty || 1}</span>
+        <button class="qty-btn" onclick="event.stopPropagation(); Listings.adjustQty('${l._id}', 1)" title="One more">+</button>
+      </span>`;
+    }
+    return `<span class="listing-type-label ${listingTypeCss(l)}">${listingTypeLabel(l)}</span>`;
   }
 
   function listingTypeLabel(item) {
@@ -644,7 +673,7 @@ const Listings = (() => {
             <select class="variant-inline ${l.needsRarityCheck ? 'flagged' : ''}" onchange="event.stopPropagation(); Listings.setCardVariant('${l._id}', this.value)" onclick="event.stopPropagation()" title="Set rarity / finish">${variantOptionsHtml(l)}</select>
           </span>
           <span class="muted">${l.cond === 'Near Mint' ? 'NM' : l.cond === 'Lightly Played' ? 'LP' : l.cond === 'Moderately Played' ? 'MP' : l.cond}</span>
-          <span class="listing-type-label ${listingTypeCss(l)} ${(l.qty>1 && l.listingType==='lot')?'qty-multi':''}">${listingTypeLabel(l)}</span>
+          ${qtyCell(l)}
           ${priceCell(l, i)}
           ${ebayLinkCell(l)}
           <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
@@ -833,5 +862,5 @@ const Listings = (() => {
     return { merged: false, qty: clean.qty, name: clean.name };
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, promptCreateVariations, setCardVariant };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, promptCreateVariations, setCardVariant, adjustQty, setQty };
 })();

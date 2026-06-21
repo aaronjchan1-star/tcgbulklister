@@ -310,10 +310,15 @@ const Scan = (() => {
     const n = (num || '').toUpperCase().trim();
     if (!n) return null;
     if (n.includes('/')) return 'pokemon';                      // 025/198
-    if (/-[A-Z]{2}\d/.test(n)) return 'yugioh';                 // LOCR-JP001
+    // Yu-Gi-Oh: SET-LANG### with a language code (EN/JP/KR/AE/SP/IT/DE/FR/PT),
+    // hyphen optional and tolerant of OCR noise (e.g. LOCR-JP001, RA04-EN001)
+    if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';
     const prefix = n.split('-')[0];
     if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
-    if (/^(OP\d|EB\d|ST\d|PRB|P)/.test(prefix)) return 'onePiece';
+    // One Piece: OP01-, EB04-, ST01-, PRB01-, or promo "P-###". The bare "P"
+    // must be followed by a hyphen so Yu-Gi-Oh "P…" sets (POTE, PHNI) don't match.
+    if (/^(OP\d|EB\d|ST\d|PRB|P-)/.test(prefix + (n.includes('-') ? '-' : ''))) return 'onePiece';
+    if (/^(OP\d|EB\d|ST\d|PRB)/.test(prefix)) return 'onePiece';
     return null;
   }
 

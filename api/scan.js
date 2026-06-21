@@ -21,10 +21,12 @@ export default async function handler(req, res) {
 STEP 1 — Identify the trading card game. Use both the artwork/layout AND the collector number format:
 - "onePiece" — One Piece Card Game. Anime pirate art; DON!! / Life icons; coloured border (red/green/blue/purple/black/yellow). Collector numbers: OP07-026, EB01-012, ST01-001, PRB01-001.
 - "pokemon" — Pokémon TCG. Pokémon creature; HP top-right; energy symbols. Collector numbers use a slash: 025/198, 6/102, 199/091.
-- "yugioh" — Yu-Gi-Oh! Monster/Spell/Trap; ATK/DEF at bottom; Level stars or Link arrows. Collector numbers: LOCR-JP001, POTE-EN001 (SET-LANGUAGE+digits, e.g. -JP/-EN/-KR).
+- "yugioh" — Yu-Gi-Oh! Distinctive look: tan/brown Monster cards or coloured Spell/Trap cards, a row of Level STARS near the top, and ATK / DEF numbers along the bottom edge. Collector code is SET-LANGUAGE+digits in a bottom corner, e.g. LOCR-JP001, POTE-EN001, RA04-EN001 — the language code is EN, JP, KR, AE, etc. ALWAYS include that language code in the number.
 - "riftbound" — Riftbound (League of Legends). LoL champions/runes; energy & might icons. Collector numbers: OGN-001, UNL-053, SFD-001, VEN-001.
 
-If unsure between One Piece and Riftbound (both use SET-### numbers), use the artwork: anime pirates = One Piece, League of Legends champions = Riftbound.
+Disambiguation by ARTWORK and LAYOUT (do this carefully — these games look very different):
+- Yu-Gi-Oh has Level stars + ATK/DEF stats and a tan monster frame. One Piece has NO ATK/DEF and NO level stars; it has DON!!/Life/Power values and a coloured pirate-themed border. If you see ATK/DEF and Level stars, it is Yu-Gi-Oh, NOT One Piece.
+- One Piece = anime pirates; Riftbound = League of Legends champions.
 
 STEP 0 — Is this the FRONT of a single trading card? If you see a card BACK (the patterned reverse — e.g. the blue/brown Pokémon back, the brown Yu-Gi-Oh back, the One Piece back), or there is no card, or the image is too blurry to read, set "cardBack" to true and stop — do not guess a card.
 

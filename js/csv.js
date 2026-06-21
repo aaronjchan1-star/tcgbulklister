@@ -601,10 +601,11 @@ const CSV = (() => {
     const n = (number || '').toUpperCase().trim();
     if (!n) return null;
     if (n.includes('/')) return 'pokemon';                              // 025/198
-    if (/-[A-Z]{2}\d/.test(n)) return 'yugioh';                         // LOCR-JP001 (language code)
+    if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';  // LOCR-JP001
     const prefix = n.split('-')[0];
     if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
-    if (/^(OP\d|EB\d|ST\d|PRB|P)/.test(prefix)) return 'onePiece';     // OP01, EB04, ST01, PRB01
+    if (/^(OP\d|EB\d|ST\d|PRB)/.test(prefix)) return 'onePiece';      // OP01, EB04, ST01, PRB01
+    if (/^P-/.test(n)) return 'onePiece';                               // One Piece promo P-001
     return null;  // unknown — will use explicit Game column or default
   }
 
