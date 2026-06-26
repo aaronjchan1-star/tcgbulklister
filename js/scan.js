@@ -348,6 +348,13 @@ const Scan = (() => {
   }
 
   /* ── Enrich identified card via the correct game API ── */
+  // Map a scan variant hint to a One Piece rarity label only when meaningful
+  function pickedFromScan(v) {
+    if (!v || v === 'unknown' || v === 'Normal') return null;
+    if (v === 'Alt Art') return 'Parallel';
+    return null;  // foil hints (Holo/Reverse) don't apply to One Piece rarity
+  }
+
   async function enrichCard(ident) {
     const cond = document.getElementById('scan-cond').value;
     const base = {
@@ -374,15 +381,22 @@ const Scan = (() => {
 
     try {
       if (ident.game === 'onePiece') {
+        let found = false;
         const r = await fetch(`/api/carddetails?number=${encodeURIComponent(base.number)}`);
         if (r.ok) {
           const d = await r.json();
-          if (d.name) base.name = d.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+          if (d.name && d.name !== base.number) {
+            base.name = d.name.replace(/\s*\([A-Z]{1,4}\d{1,2}.*/i, '').trim();
+            found = true;
+          }
           base.limitlessSetName = d.setName || null;
           base.imageUrl    = d.imageUrl || null;
           base.cardDetails = d;
-          base.variant     = { suffix: '', label: d.rarity || '' };
+          // Auto-detected rarity from Limitless; user can override via the dropdown
+          base.variant     = { suffix: '', label: pickedFromScan(ident.variant) || d.rarity || '' };
         }
+        // If the card couldn't be found, the number was probably misread — flag it
+        if (!found) base.needsRarityCheck = true;
       } else if (ident.game === 'riftbound') {
         const r = await fetch(`/api/riftbound?number=${encodeURIComponent(base.number)}`);
         if (r.ok) {

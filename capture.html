@@ -59,6 +59,11 @@
     <div id="frame-guide"></div>
     <div id="count-badge">0 sent</div>
     <div id="last-card"></div>
+    <div id="zoom-control" style="position:absolute; left:12px; right:12px; bottom:12px; display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.55); padding:8px 12px; border-radius:99px; z-index:2;">
+      <span style="font-size:13px;">🔍</span>
+      <input type="range" id="zoom-slider" min="1" max="4" step="0.1" value="1" style="flex:1; accent-color:#22c55e;" oninput="setZoom(this.value)" />
+      <span id="zoom-label" style="font-size:12px; min-width:34px; text-align:right;">1.0×</span>
+    </div>
     <div id="flash"></div>
   </div>
   <footer id="cam-footer" style="display:none;">
@@ -82,6 +87,8 @@ let session = '';
 let sent = 0;
 let stream = null;
 let busy = false;
+let digitalZoom = 1;       // software zoom (crop) multiplier
+let nativeZoomTrack = null; // camera hardware zoom track, if supported
 const COOLDOWN_MS = 1200;  // prevents accidental double-captures
 
 function getParam(name) { return new URLSearchParams(location.search).get(name); }
@@ -111,6 +118,21 @@ async function start() {
     const video = document.getElementById('video');
     video.srcObject = stream;
     await video.play().catch(()=>{});
+
+    // Detect hardware zoom support; configure the slider to the camera's range
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps  = track.getCapabilities ? track.getCapabilities() : {};
+      const slider = document.getElementById('zoom-slider');
+      if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
+        nativeZoomTrack = track;
+        slider.min = caps.zoom.min;
+        slider.max = Math.min(caps.zoom.max, caps.zoom.min + 6);
+        slider.step = caps.zoom.step || 0.1;
+        slider.value = caps.zoom.min;
+        updateZoomLabel(caps.zoom.min, true);
+      }
+    } catch(e) { /* fall back to digital zoom */ }
   } catch(e) {
     document.getElementById('status').textContent = 'Camera blocked';
     alert('Could not access the camera. Allow camera access in your browser settings and reload this page.');
@@ -140,12 +162,13 @@ let stableFrames = 0;
 let autoCooldownUntil = 0;
 let autoLoopRunning = false;
 
-// Tuning — frame fingerprint is 32x32 grayscale (mean abs diff 0-255)
-const STABLE_MAX   = 6;   // below this = frame is steady (card settled)
-const NOVELTY_MIN  = 9;   // above this vs last capture = a different card
-const VARIANCE_MIN = 18;  // above this = a detailed card (not a blank surface)
-const STABLE_NEEDED = 2;  // consecutive steady frames before capturing
-const AUTO_COOLDOWN_MS = 1600;
+// Movement-triggered tuning (mean abs frame diff, 0-255 scale)
+const MOVE_THRESHOLD  = 8;    // above this = the card is moving (slinger feeding)
+const STILL_THRESHOLD = 3.5;  // below this = frame has settled
+const SETTLE_MS       = 650;  // must stay still this long after movement, then scan
+const VARIANCE_MIN    = 15;   // frame has a card (not a blank surface)
+let movedSinceCapture = true; // require fresh movement before each capture
+let settleStart = 0;
 
 function toggleAuto() {
   autoScan = !autoScan;
@@ -175,7 +198,9 @@ function fingerprint(video) {
   const ctx = c.getContext('2d');
   // Sample the center frame region (matches the framing guide)
   const vw = video.videoWidth, vh = video.videoHeight;
-  ctx.drawImage(video, vw*0.08, vh*0.10, vw*0.84, vh*0.80, 0, 0, 32, 32);
+  const dz = digitalZoom;
+  const ix = 0.08 + (1 - 1/dz) * 0.42, iy = 0.10 + (1 - 1/dz) * 0.40;
+  ctx.drawImage(video, vw*ix, vh*iy, vw*(1-2*ix), vh*(1-2*iy), 0, 0, 32, 32);
   const d = ctx.getImageData(0, 0, 32, 32).data;
   const gray = new Array(1024);
   let sum = 0;
@@ -203,21 +228,47 @@ async function autoLoop() {
   if (video.videoWidth && !busy) {
     const fp = fingerprint(video);
     const movement = frameDiff(fp, prevFp);
-    const novelty  = frameDiff(fp, lastCapturedFp);
     prevFp = fp;
-
-    if (movement < STABLE_MAX) stableFrames++; else stableFrames = 0;
-
     const now = Date.now();
     const hasCard = fp.variance > VARIANCE_MIN;
-    if (now > autoCooldownUntil && hasCard && stableFrames >= STABLE_NEEDED && novelty > NOVELTY_MIN) {
-      lastCapturedFp = fp;
-      autoCooldownUntil = now + AUTO_COOLDOWN_MS;
-      stableFrames = 0;
-      capture();
+
+    if (movement > MOVE_THRESHOLD) {
+      // The slinger is feeding a card — motion in progress. Don't scan blurry frames.
+      movedSinceCapture = true;
+      settleStart = 0;
+      setAutoStatus('moving');
+    } else if (movement < STILL_THRESHOLD && hasCard && movedSinceCapture) {
+      // Frame has gone still after a movement → start/continue the settle timer
+      if (!settleStart) settleStart = now;
+      else if (now - settleStart >= SETTLE_MS) {
+        // Settled long enough → capture ONCE. Won't fire again until the next card moves in.
+        movedSinceCapture = false;
+        settleStart = 0;
+        setAutoStatus('captured');
+        capture();
+      } else {
+        setAutoStatus('settling');
+      }
+    } else {
+      // partial motion / blank — reset settle timer, keep waiting
+      settleStart = 0;
+      if (!movedSinceCapture) setAutoStatus('ready');
     }
   }
-  setTimeout(autoLoop, 220);
+  setTimeout(autoLoop, 110);  // sample ~9x/sec for responsive motion detection
+}
+
+function setAutoStatus(state) {
+  const st = document.getElementById('status');
+  if (!st || !autoScan) return;
+  const map = {
+    moving:   ['● feeding card…', '#f59e0b'],
+    settling: ['● settling…',     '#60a5fa'],
+    captured: ['● captured ✓',     '#4ade80'],
+    ready:    ['● ready for next', '#4ade80']
+  };
+  const [txt, col] = map[state] || ['Connected', '#4ade80'];
+  st.textContent = txt; st.style.color = col;
 }
 
 async function capture() {
@@ -233,18 +284,25 @@ async function capture() {
   flash.style.opacity = '0.8';
   setTimeout(() => flash.style.opacity = '0', 130);
 
-  // Crop to the framing guide region so stray cards outside the frame aren't captured
+  // Crop to the framing guide. Digital zoom tightens the crop further so the card
+  // fills the frame and its small collector number stays readable.
   const canvas = document.getElementById('canvas');
   const vw = video.videoWidth, vh = video.videoHeight;
-  // guide is inset 10% top/bottom, 8% left/right
-  const cropX = vw * 0.08, cropY = vh * 0.10;
-  const cropW = vw * 0.84, cropH = vh * 0.80;
-  const maxDim = 1024;
+  const dz = digitalZoom;   // 1 = no digital zoom
+  const baseInsetX = 0.08, baseInsetY = 0.10;
+  const insetX = baseInsetX + (1 - 1/dz) * (0.5 - baseInsetX);
+  const insetY = baseInsetY + (1 - 1/dz) * (0.5 - baseInsetY);
+  const cropX = vw * insetX, cropY = vh * insetY;
+  const cropW = vw * (1 - 2*insetX), cropH = vh * (1 - 2*insetY);
+  // Higher output resolution (1500px) so card numbers read accurately
+  const maxDim = 1500;
   let outW = cropW, outH = cropH;
   if (outW > maxDim || outH > maxDim) { const sc = maxDim / Math.max(outW, outH); outW = Math.round(outW*sc); outH = Math.round(outH*sc); }
   canvas.width = outW; canvas.height = outH;
-  canvas.getContext('2d').drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
-  const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+  const cx = canvas.getContext('2d');
+  cx.imageSmoothingQuality = 'high';
+  cx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+  const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
 
   btn.textContent = '⏳ Sending…';
   try {
@@ -267,6 +325,28 @@ async function capture() {
     btn.textContent = autoScan ? '⏸ Auto-scanning — tap to capture now' : '📸 Capture card';
     btn.disabled = false; busy = false;
   }, COOLDOWN_MS);
+}
+
+function setZoom(val) {
+  val = parseFloat(val);
+  if (nativeZoomTrack) {
+    // Hardware zoom — best quality
+    nativeZoomTrack.applyConstraints({ advanced: [{ zoom: val }] }).catch(()=>{});
+    document.getElementById('video').style.transform = '';
+    digitalZoom = 1;
+    updateZoomLabel(val, true);
+  } else {
+    // Digital zoom — scale the preview and tighten the capture crop
+    digitalZoom = val;
+    document.getElementById('video').style.transform = `scale(${val})`;
+    document.getElementById('video').style.transformOrigin = 'center center';
+    updateZoomLabel(val, false);
+  }
+}
+
+function updateZoomLabel(val, isNative) {
+  const lbl = document.getElementById('zoom-label');
+  if (lbl) lbl.textContent = (isNative ? val.toFixed(1) : val.toFixed(1)) + '×';
 }
 
 init();

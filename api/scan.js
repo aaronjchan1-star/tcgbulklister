@@ -30,7 +30,7 @@ Disambiguation by ARTWORK and LAYOUT (do this carefully — these games look ver
 
 STEP 0 — Is this the FRONT of a single trading card? If you see a card BACK (the patterned reverse — e.g. the blue/brown Pokémon back, the brown Yu-Gi-Oh back, the One Piece back), or there is no card, or the image is too blurry to read, set "cardBack" to true and stop — do not guess a card.
 
-STEP 2 — Read the collector number EXACTLY as printed (usually a bottom corner).
+STEP 2 — Read the collector number EXACTLY as printed (usually a bottom corner). This is the MOST important field — read it character by character. Do not guess or autocomplete to a number you think exists. For One Piece, the set prefix is OP01–OP16, EB01–EB04, ST, or PRB — there is no OP17/OP18/OP19 yet, so if you think you see a higher number, look again carefully (a 6 can look like an 8 or 9 when blurry). If the number is blurry or you are not fully sure of any digit, set confidence to "low".
 
 For the card name, read the title printed on the card.
 
