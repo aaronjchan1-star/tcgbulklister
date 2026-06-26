@@ -104,11 +104,28 @@ export default async function handler(req, res) {
       .filter(t => t && t.length > 5 && !t.match(/^(Illustrated|Block|Tournament|Latest|Deck)/i));
 
     // ── Rarity ────────────────────────────────────────────────
-    const rarityRaw = rarity || html.match(/·\s*(SR|R|UC|C|SEC|SE|L|SP|TR|MR)\b/i)?.[1];
-    const RMAP = { 'SECRET RARE':'SEC','SUPER RARE':'SR','RARE':'R','UNCOMMON':'UC',
-      'COMMON':'C','LEADER':'L','SPECIAL':'SP','TREASURE RARE':'TR','MANGA RARE':'MR',
-      'SEC':'SEC','SR':'SR','R':'R','UC':'UC','C':'C','L':'L','SP':'SP','TR':'TR','MR':'MR','SE':'SE' };
-    const rarityCode = RMAP[(rarityRaw||'').trim().toUpperCase()] || rarityRaw?.trim() || null;
+    // Limitless reliably renders rarity as "SetName (SETCODE) Rarity" inside the
+    // link to the set page, e.g. "500 Years in the Future (OP07) Super Rare".
+    // Match the rarity word(s) that immediately follow this card's (SETCODE).
+    const RMAP = {
+      'SECRET RARE':'SEC', 'SUPER RARE':'SR', 'RARE':'R', 'UNCOMMON':'UC', 'COMMON':'C',
+      'LEADER':'L', 'SPECIAL':'SP', 'SPECIAL CARD':'SP', 'PROMO':'P', 'PROMOTIONAL':'P',
+      'TREASURE RARE':'TR', 'MANGA RARE':'Manga Rare', 'PARALLEL':'Parallel', 'ALTERNATE ART':'Parallel', 'FULL ART':'Full Art', 'DON':'DON',
+      // already-coded fall-throughs
+      'SEC':'SEC','SR':'SR','R':'R','UC':'UC','C':'C','L':'L','SP':'SP','TR':'TR','MR':'MR','P':'P'
+    };
+
+    let rarityWord = null;
+    // Primary: the "(SETCODE) Rarity" pattern, capturing capitalised rarity words
+    const setRarityRe = new RegExp('\\(' + set + '\\)\\s*([A-Za-z][A-Za-z ]+?)\\s*(?:<\\/a>|<|\\n|$)', 'i');
+    const srMatch = html.match(setRarityRe) || (clean(html) || '').match(setRarityRe);
+    if (srMatch && srMatch[1]) rarityWord = srMatch[1].trim();
+    // Fallback: the old row-based value if the pattern wasn't found
+    if (!rarityWord) rarityWord = rarity || null;
+
+    const rarityCode = rarityWord
+      ? (RMAP[rarityWord.toUpperCase()] || rarityWord.trim())
+      : null;
 
     // ── Image ─────────────────────────────────────────────────
     const imageUrl = html.match(/property="og:image"\s+content="([^"]+)"/i)?.[1] || fallbackImg;

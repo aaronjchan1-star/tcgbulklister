@@ -393,7 +393,8 @@ const Scan = (() => {
           base.imageUrl    = d.imageUrl || null;
           base.cardDetails = d;
           // Auto-detected rarity from Limitless; user can override via the dropdown
-          base.variant     = { suffix: '', label: pickedFromScan(ident.variant) || d.rarity || '' };
+          const opRarity = pickedFromScan(ident.variant) || d.rarity || '';
+          base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('onePiece', opRarity) : opRarity) };
         }
         // If the card couldn't be found, the number was probably misread — flag it
         if (!found) base.needsRarityCheck = true;
@@ -405,7 +406,7 @@ const Scan = (() => {
           base.limitlessSetName = d.setName || null;
           base.imageUrl    = d.imageUrl || null;
           base.cardDetails = d;
-          base.variant     = { suffix: '', label: d.rarity || '' };
+          base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('riftbound', d.rarity || '') : (d.rarity || '')) };
         }
       } else if (ident.game === 'yugioh') {
         const r = await fetch(`/api/yugioh?number=${encodeURIComponent(base.number)}`);
@@ -416,7 +417,7 @@ const Scan = (() => {
           base.imageUrl    = d.imageUrl || null;
           base.cardDetails = d;
           base.lang        = d.lang || 'English';
-          base.variant     = { suffix: '', label: d.rarity || '' };
+          base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('yugioh', d.rarity || '') : (d.rarity || '')) };
         }
       } else if (ident.game === 'pokemon') {
         // Pokemon: search pokemontcg.io. The API stores numbers WITHOUT leading
