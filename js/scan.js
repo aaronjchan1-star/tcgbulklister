@@ -2,7 +2,7 @@
  * js/scan.js — AI card scanning
  * Upload images → Claude vision identifies card → enrich via game API → add to listings.
  */
-const Scan = (() => {
+window.Scan = (() => {
 
   let scannedCards = [];  // holds results pending review
 
@@ -554,5 +554,19 @@ const Scan = (() => {
 
   window.addEventListener('DOMContentLoaded', init);
 
-  return { handleFiles, removeResult, clearResults, confirmAll, setMode };
+  // Re-pull full card details for a manually-corrected number (the "wrong card?" fix).
+  async function reidentify(game, number) {
+    const num = (number || '').toUpperCase().trim();
+    const byNum = gameFromNumber(num);                 // number format wins
+    const ident = {
+      game: byNum || game,
+      number: num,
+      name: num,
+      variant: 'Normal',
+      confidence: 'high'
+    };
+    return enrichCard(ident);
+  }
+
+  return { handleFiles, removeResult, clearResults, confirmAll, setMode, reidentify };
 })();

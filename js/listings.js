@@ -463,6 +463,89 @@ const Listings = (() => {
     return opts;
   }
 
+  let editingId = null;
+
+  function startEdit(id) { editingId = id; render(); setTimeout(() => { const el = document.getElementById('fix-' + id); if (el) { el.focus(); el.select(); } }, 30); }
+  function cancelEdit() { editingId = null; render(); }
+
+  function applyCorrect(id) {
+    const el = document.getElementById('fix-' + id);
+    if (!el) return;
+    const newNumber = el.value.trim();
+    editingId = null;
+    if (newNumber) correctCard(id, newNumber);
+    else render();
+  }
+
+  // Re-pull a card's details from the database for a corrected number.
+  async function correctCard(id, newNumber) {
+    const it = items.find(x => x._id === id);
+    if (!it || !window.Scan?.reidentify) return;
+    it._fixing = true; render();
+    try {
+      const fresh = await window.Scan.reidentify(it.game, newNumber);
+      it.game            = fresh.game || it.game;
+      it.number          = fresh.number || newNumber.toUpperCase();
+      it.name            = fresh.name || it.name;
+      it.imageUrl        = fresh.imageUrl || null;
+      it.setId           = fresh.setId || null;
+      it.setName         = fresh.setName || null;
+      it.limitlessSetName= fresh.limitlessSetName || null;
+      it.printedNumber   = fresh.printedNumber || null;
+      it.variant         = fresh.variant || it.variant;
+      it.cardDetails     = fresh.cardDetails || null;
+      it.needsRarityCheck= fresh.needsRarityCheck || false;
+      if (fresh.price) it.price = fresh.price;
+    } catch (e) {
+      const s = document.getElementById('save-status');
+      if (s) { s.textContent = 'Could not fetch ' + newNumber + ' — check the number.'; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',4000); }
+    }
+    delete it._fixing;
+    save(); render();
+  }
+
+  // Split a bulk lot or variations listing back into individual lot listings.
+  function ungroup(id) {
+    const idx = items.findIndex(x => x._id === id);
+    if (idx < 0) return;
+    const g = items[idx];
+    const src = g.listingType === 'variations' ? g.variationItems : (g.listingType === 'bulk' ? g.bulkItems : null);
+    if (!src) return;
+    const restored = src.map(c => sanitiseCard({
+      game: g.game,
+      number: c.number,
+      name: c.name,
+      cond: c.cond || g.cond || 'Near Mint',
+      qty: c.qty || 1,
+      price: c.price || 0,
+      post: 0,
+      listingType: 'lot',
+      lang: c.lang || 'English',
+      variant: typeof c.variant === 'string' ? c.variant
+               : (g.game === 'pokemon' ? (c.variant || 'Normal') : { suffix: '', label: c.variant || '' }),
+      imageUrl: c.imageUrl || null,
+      setId: c.setId || null,
+      setName: c.setName || null,
+      printedNumber: c.printedNumber || null
+    }));
+    items.splice(idx, 1, ...restored);
+    save(); render();
+    const s = document.getElementById('save-status');
+    if (s) { s.textContent = `Split back into ${restored.length} individual cards.`; s.style.opacity='1'; setTimeout(()=>s.style.opacity='0',4000); }
+  }
+
+  function numberCell(l) {
+    if (l._id === editingId) {
+      return `<span class="mono fix-wrap">
+        <input id="fix-${l._id}" class="fix-input" value="${l.number || ''}" placeholder="e.g. OP16-045"
+               onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){event.preventDefault(); Listings.applyCorrect('${l._id}')}" />
+        <button class="fix-go" onclick="event.stopPropagation(); Listings.applyCorrect('${l._id}')" title="Re-fetch">&#x21BB;</button>
+        <button class="fix-cancel" onclick="event.stopPropagation(); Listings.cancelEdit()" title="Cancel">&#x2715;</button>
+      </span>`;
+    }
+    return `<span class="mono">${l._fixing ? '<span class="fixing">fetching…</span>' : displayNumber(l)}</span>`;
+  }
+
   function adjustQty(id, delta) {
     const it = items.find(x => x._id === id);
     if (!it || it.listingType === 'playset' || it.listingType === 'bulk' || it.listingType === 'variations') return;
@@ -642,7 +725,7 @@ const Listings = (() => {
               <span style="font-size:12px;">${priceRange}</span>
               ${ebayLinkCell(l)}
               <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
-              <button class="remove-btn" onclick="Listings.remove(${i})" title="Ungroup / remove">&#x2715;</button>
+              <span class="group-actions"><button class="ungroup-btn" onclick="Listings.ungroup('${l._id}')" title="Split back into individual cards">⤺</button><button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button></span>
             </div>`;
         }
         if (isBulk) {
@@ -658,15 +741,15 @@ const Listings = (() => {
               ${priceCell(l, i)}
               ${ebayLinkCell(l)}
               <span class="muted">${l.post === 0 ? 'Free' : '$' + l.post.toFixed(2)}</span>
-              <button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button>
+              <span class="group-actions"><button class="ungroup-btn" onclick="Listings.ungroup('${l._id}')" title="Split back into individual cards">⤺</button><button class="remove-btn" onclick="Listings.remove(${i})" title="Remove">&#x2715;</button></span>
             </div>`;
         }
         return `
         <div class="${rowCls}" ${rowClick}>
           ${checkbox}
-          <img class="card-thumb" src="${imageUrl(l)}" alt="${l.name}" onerror="this.style.display='none'" />
+          <img class="card-thumb" src="${imageUrl(l)}" alt="${l.name}" onerror="this.style.display='none'" onclick="event.stopPropagation(); Listings.startEdit('${l._id}')" title="Wrong card? Tap the photo to fix the number" style="cursor:pointer;" />
           <span><span class="badge ${gameBadgeClass(l)}">${gameLabel(l)}</span></span>
-          <span class="mono">${displayNumber(l)}</span>
+          ${numberCell(l)}
           <span class="listing-name" title="${cleanName(l.name)}">${cleanName(l.name)}</span>
           <span class="variant-cell">
             <span class="set-tiny" title="${subLabel(l)}">${subLabel(l)}</span>
@@ -862,5 +945,5 @@ const Listings = (() => {
     return { merged: false, qty: clean.qty, name: clean.name };
   }
 
-  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, promptCreateVariations, setCardVariant, adjustQty, setQty };
+  return { add, remove, updatePrice, setMarketCheck, getAll, getItems, getGame, setGame, render, load, save, clearAll, clearAllConfirmed, clearAllCancelled, replaceAll, addAll, addOrIncrement, imageUrl, imageUrlFromFields, toggleSelectMode, isSelectMode, toggleSelect, selectAllGame, clearSelection, promptCreateBulk, promptCreateVariations, setCardVariant, adjustQty, setQty, startEdit, cancelEdit, applyCorrect, correctCard, ungroup };
 })();

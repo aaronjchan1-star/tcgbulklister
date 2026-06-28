@@ -973,3 +973,34 @@ input[type=text]:hover, input[type=number]:hover, select:hover { background: #24
 @media (max-width: 640px) {
   .qty-btn { width: 34px; height: 34px; font-size: 18px; }  /* bigger tap targets */
 }
+
+/* ═══════════════ Fix-card (wrong card?) + ungroup ═══════════════ */
+.card-thumb { transition: outline 0.12s; }
+.card-thumb:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.fix-wrap { display: inline-flex; align-items: center; gap: 3px; }
+.fix-input {
+  width: 92px; padding: 4px 6px; font-size: 12px;
+  font-family: 'SF Mono', Menlo, monospace;
+  background: #1a1a1a; color: var(--text);
+  border: 1px solid var(--accent); border-radius: 6px;
+}
+.fix-go, .fix-cancel {
+  border: none; border-radius: 6px; width: 24px; height: 26px;
+  cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit;
+}
+.fix-go { background: var(--accent); color: #fff; }
+.fix-cancel { background: #333; color: #aaa; }
+.fixing { color: var(--accent); font-style: italic; animation: flagPulse 1.2s ease-in-out infinite; }
+
+.group-actions { display: inline-flex; gap: 4px; align-items: center; }
+.ungroup-btn {
+  background: none; border: 1px solid var(--border-md); border-radius: 6px;
+  color: #c4b5fd; width: 26px; height: 26px; cursor: pointer; font-size: 14px;
+}
+.ungroup-btn:hover { background: #2a2440; border-color: #6d28d9; }
+
+@media (max-width: 640px) {
+  .fix-input { width: 80px; font-size: 14px; }
+  .card-thumb:hover { outline: none; }  /* tap, not hover, on mobile */
+}
