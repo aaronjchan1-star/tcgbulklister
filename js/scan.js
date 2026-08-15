@@ -164,6 +164,11 @@ window.Scan = (() => {
       setPhoneStatus(`📱 Scanning card ${phoneReceived} from phone…`, 'busy');
       try {
         const ident = await identifyCard(img.image, img.mediaType || 'image/jpeg');
+        if (ident.scanError) {
+          setPhoneStatus(`⚠ Scan hiccup${ident.retryable ? ' — feed that card again' : ''}`, 'off');
+          addThumb(img.image, ident.retryable ? '↻ retry card' : '✗ scan error', 'try again', 'fail');
+          continue;
+        }
         if (ident.cardBack) {
           setPhoneStatus(`Saw a card back — flip it face-up and capture again`, 'off');
           addThumb(img.image, '↩ card back', 'flip it', 'fail');
@@ -242,6 +247,7 @@ window.Scan = (() => {
         const { base64, mediaType } = await fileToBase64(file);
         const ident = await identifyCard(base64, mediaType);
 
+        if (ident.scanError) { failed++; statusEl.textContent = `Scan hiccup on ${file.name} — try that one again`; continue; }
         if (ident.cardBack) { failed++; statusEl.textContent = `Skipped a card back (${file.name})`; continue; }
         if (!ident.number || ident.error) { failed++; continue; }
 
@@ -333,6 +339,9 @@ window.Scan = (() => {
       throw new Error(err.error || `Scan failed ${resp.status}`);
     }
     const ident = await resp.json();
+
+    // Soft scan error (rate limit / bad image / non-JSON) — signal caller to skip & flag
+    if (ident.scanError) return { scanError: true, retryable: ident.retryable, message: ident.message };
 
     // Card back / unreadable → signal caller to skip
     if (ident.cardBack) return { cardBack: true };

@@ -50,33 +50,66 @@ Respond ONLY with JSON, no other text:
 If it's a card back / not a readable card, respond exactly: {"cardBack":true}
 If you can see a card but can't read it clearly, set confidence to "low" and give your best guess.`;
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: image } },
-            { type: 'text', text: prompt }
-          ]
-        }]
-      })
-    });
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 300,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: image } },
+        { type: 'text', text: prompt }
+      ]
+    }]
+  });
 
-    if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0,150)}`);
-    const data = await resp.json();
-    const text = data.content?.[0]?.text || '';
-    const result = JSON.parse((text.match(/\{[\s\S]*\}/) || ['{}'])[0]);
-    return res.status(200).json(result);
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // Retry transient Anthropic errors (rate limit / overloaded / gateway) — these
+  // are common when slinging cards quickly and were surfacing as raw 500s.
+  const RETRYABLE = new Set([429, 500, 502, 503, 529]);
+  let lastErr = '';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01'
+        },
+        body
+      });
+
+      if (!resp.ok) {
+        const errText = (await resp.text()).slice(0, 200);
+        lastErr = `Anthropic ${resp.status}: ${errText}`;
+        if (RETRYABLE.has(resp.status)) {
+          if (attempt < 3) { await sleep(400 * Math.pow(2, attempt) + Math.random() * 200); continue; }
+          // Exhausted retries on a transient error — user can just re-feed the card
+          return res.status(200).json({ scanError: true, retryable: true, message: lastErr, confidence: 'low' });
+        }
+        // Non-retryable (e.g. 400 bad image, 401 bad key) — skip, don't crash
+        return res.status(200).json({ scanError: true, retryable: false, message: lastErr, confidence: 'low' });
+      }
+
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || '';
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) {
+        // Model didn't return JSON — treat as an unreadable card, don't 500
+        return res.status(200).json({ scanError: true, retryable: true, message: 'No JSON in model response', confidence: 'low' });
+      }
+      try {
+        return res.status(200).json(JSON.parse(match[0]));
+      } catch {
+        return res.status(200).json({ scanError: true, retryable: true, message: 'Malformed JSON', confidence: 'low' });
+      }
+    } catch (e) {
+      // Network/timeout — retry a couple of times
+      lastErr = e.message || String(e);
+      if (attempt < 3) { await sleep(400 * Math.pow(2, attempt)); continue; }
+    }
   }
+  // All attempts exhausted — return a soft error so the client can flag & continue
+  return res.status(200).json({ scanError: true, retryable: true, message: lastErr || 'Scan failed after retries', confidence: 'low' });
 }
