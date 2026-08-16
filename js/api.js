@@ -23,8 +23,16 @@ const API = (() => {
   }
 
   function buildKeywords(card) {
-    if (card.game === 'onePiece') return `${card.number} One Piece`;
-    return `${card.name} ${card.setName} Pokemon`.trim();
+    const variant = typeof card.variant === 'string' ? card.variant : (card.variant?.label || '');
+    if (card.game === 'pokemon') {
+      const finish = (variant && !['Normal','Holo',''].includes(variant)) ? variant : '';
+      return [card.name, card.printedNumber || card.number, card.setName || '', finish, 'Pokemon'].filter(Boolean).join(' ');
+    }
+    if (card.game === 'riftbound') return `${card.number} ${card.name} Riftbound`;
+    if (card.game === 'yugioh')    return `${card.number} ${card.name} Yugioh`.trim();
+    // One Piece (default for OP-style numbers)
+    const alt = /parallel|full art|alt/i.test(variant) ? 'Parallel' : '';
+    return [card.number, card.name, alt, 'One Piece'].filter(Boolean).join(' ');
   }
 
   function buildSearchKeywords(game) {

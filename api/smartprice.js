@@ -47,15 +47,34 @@ export default async function handler(req, res) {
   const name    = card.name || '';
   const variant = typeof card.variant === 'string' ? card.variant : (card.variant?.label || '');
   const lang    = card.lang || 'English';
-  const game    = card.game || 'onePiece';
+  // Infer the game from the number format if it's missing — never assume One Piece.
+  function gameFromNumber(n) {
+    if (!n) return '';
+    if (n.includes('/')) return 'pokemon';
+    if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';
+    const p = n.split('-')[0];
+    if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(p)) return 'riftbound';
+    if (/^(OP\d|EB\d|ST\d|PRB)/.test(p) || /^P-/.test(n)) return 'onePiece';
+    return '';
+  }
+  const game = card.game || gameFromNumber(number) || '';
 
-  // Build search keywords per game
+  // Build search keywords per game. For Pokémon, include the SET and the FINISH
+  // (Poké Ball / Master Ball / Reverse Holo) — these massively change the price.
   let keywords;
-  if (game === 'onePiece')      keywords = `${number} ${name} One Piece`;
-  else if (game === 'pokemon')  keywords = `${name} ${card.printedNumber || number} Pokemon`;
-  else if (game === 'riftbound') keywords = `${number} ${name} Riftbound`;
-  else if (game === 'yugioh')   keywords = `${number} ${name} Yugioh`;
-  else keywords = `${number} ${name}`;
+  if (game === 'pokemon') {
+    const finish = (variant && !['Normal', 'Holo', ''].includes(variant)) ? variant : '';
+    keywords = [name, card.printedNumber || number, card.setName || '', finish, 'Pokemon'].filter(Boolean).join(' ');
+  } else if (game === 'onePiece') {
+    const alt = /parallel|full art|alt/i.test(variant) ? 'Parallel' : '';
+    keywords = [number, name, alt, 'One Piece'].filter(Boolean).join(' ');
+  } else if (game === 'riftbound') {
+    keywords = `${number} ${name} Riftbound`;
+  } else if (game === 'yugioh') {
+    keywords = [number, name, variant || '', 'Yugioh'].filter(Boolean).join(' ');
+  } else {
+    keywords = `${number} ${name}`.trim();
+  }
 
   const CATEGORY = { onePiece:'183454', pokemon:'2536', riftbound:'183050', yugioh:'183454' };
 

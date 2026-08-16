@@ -8,11 +8,15 @@ const Market = (() => {
 
   function buildKeywords(card) {
     const num = card.printedNumber || card.number;
-    if (card.game === 'onePiece') return `${card.number} One Piece`;
-    if (card.game === 'pokemon')  return `${cleanName(card.name)} ${card.setName || ''} Pokemon`.trim();
-    if (card.game === 'riftbound') return `${card.number} Riftbound`;
-    if (card.game === 'yugioh')   return `${card.number} Yugioh`;
-    return card.number;
+    const variant = typeof card.variant === 'string' ? card.variant : (card.variant?.label || '');
+    if (card.game === 'pokemon') {
+      const finish = (variant && !['Normal','Holo',''].includes(variant)) ? variant : '';
+      return [cleanName(card.name), num, card.setName || '', finish, 'Pokemon'].filter(Boolean).join(' ');
+    }
+    if (card.game === 'riftbound') return `${card.number} ${cleanName(card.name)} Riftbound`;
+    if (card.game === 'yugioh')    return `${card.number} ${cleanName(card.name)} Yugioh`.trim();
+    const alt = /parallel|full art|alt/i.test(variant) ? 'Parallel' : '';
+    return [card.number, cleanName(card.name), alt, 'One Piece'].filter(Boolean).join(' ');
   }
   function cleanName(n) { return (n || '').replace(/\s*\(.*$/, '').trim(); }
 
