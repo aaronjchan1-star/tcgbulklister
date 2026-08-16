@@ -43,6 +43,9 @@
     },
     "api/relay.js": {
       "maxDuration": 30
+    },
+    "api/pokemon.js": {
+      "maxDuration": 15
     }
   }
 }

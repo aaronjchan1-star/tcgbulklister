@@ -267,20 +267,27 @@ const UI = (() => {
       const rawNumber    = parts[0].trim();
       const printedTotal = parts[1]?.trim();
 
-      let query = `number:${rawNumber}`;
+      // pokemontcg.io stores numbers without leading zeros ("51" not "051")
+      const numForQuery = rawNumber.replace(/^0+/, '') || rawNumber;
+      let query = `number:${numForQuery}`;
       if (printedTotal) query += ` set.printedTotal:${printedTotal}`;
 
-      const url  = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=20`;
-      const res  = await fetch(url);
+      // Go through our resilient proxy (retries + optional API key) instead of
+      // hitting pokemontcg.io directly, which often returns transient 500s.
+      const res  = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&pageSize=20`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
       let cards  = data.data || [];
 
-      if (cards.length === 0 && rawNumber.startsWith('0')) {
-        const stripped = String(parseInt(rawNumber, 10));
-        let q2 = `number:${stripped}`;
-        if (printedTotal) q2 += ` set.printedTotal:${printedTotal}`;
-        const res2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=20`);
+      if (data.upstreamError && cards.length === 0) {
+        statusEl.textContent = 'Pokémon database is busy right now — please try again in a moment.';
+        statusEl.className   = 'lookup-status err';
+        return;
+      }
+
+      // Fallback: try number alone (no set total)
+      if (cards.length === 0 && printedTotal) {
+        const res2  = await fetch(`/api/pokemon?q=${encodeURIComponent('number:' + numForQuery)}&pageSize=20`);
         const data2 = await res2.json();
         cards = data2.data || [];
       }

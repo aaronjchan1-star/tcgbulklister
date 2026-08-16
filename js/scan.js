@@ -438,7 +438,9 @@ window.Scan = (() => {
         const numericTotal = total ? parseInt(total, 10) : null;
 
         async function pkmnSearch(query) {
-          const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&select=id,name,number,set,images,rarity,tcgplayer&orderBy=-set.releaseDate&pageSize=10`);
+          // Use the resilient proxy (retries + optional key) so transient
+          // pokemontcg.io 500s don't break scan enrichment.
+          const r = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&pageSize=10`);
           if (!r.ok) return null;
           const data = await r.json();
           return data.data || [];
