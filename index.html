@@ -18,7 +18,7 @@
       } catch(e) { window.location.replace('auth.html'); }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260820b" />
 </head>
 <body>
 <div class="container">
@@ -26,7 +26,7 @@
   <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>
       <h1>TCG eBay AU Bulk Lister</h1>
-      <p>Scan · auto-price · export — One Piece, Pokémon, Riftbound &amp; Yu-Gi-Oh!</p>
+      <p>Scan · auto-price · export — One Piece, Pokémon, Riftbound, Yu-Gi-Oh! &amp; Gundam <span id="build-stamp" style="opacity:0.4;font-size:11px;">build 20260820b</span></p>
     </div>
     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
       <span class="sync-pill" id="sync-pill" onclick="Sync.openModal()">
@@ -505,16 +505,16 @@
   </div>
 
 </div>
-<script src="js/sets.js"></script>
-<script src="js/rarities.js"></script>
-<script src="js/api.js"></script>
-<script src="js/listings.js"></script>
-<script src="js/csv.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/claude.js"></script>
-<script src="js/scan.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/market.js"></script>
+<script src="js/sets.js?v=20260820b"></script>
+<script src="js/rarities.js?v=20260820b"></script>
+<script src="js/api.js?v=20260820b"></script>
+<script src="js/listings.js?v=20260820b"></script>
+<script src="js/csv.js?v=20260820b"></script>
+<script src="js/ui.js?v=20260820b"></script>
+<script src="js/claude.js?v=20260820b"></script>
+<script src="js/scan.js?v=20260820b"></script>
+<script src="js/sync.js?v=20260820b"></script>
+<script src="js/market.js?v=20260820b"></script>
 <script>
 function logout() {
   localStorage.removeItem('tcg_auth_session');

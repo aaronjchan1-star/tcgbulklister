@@ -30,10 +30,25 @@ export default async function handler(req, res) {
     return null;
   }
 
+  // cardsetsinfo may return a single object OR an array of printings — normalise.
+  async function lookupSetCode(code) {
+    const raw = await getJson(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(code)}`);
+    if (!raw) return null;
+    const obj = Array.isArray(raw) ? raw[0] : raw;
+    if (!obj || obj.error || !obj.name) return null;
+    return obj;
+  }
+
   try {
-    // Step 1 — resolve the exact printing by set code
-    const setInfo = await getJson(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(num)}`);
-    if (!setInfo || setInfo.error || !setInfo.name) {
+    // Step 1 — resolve the printing by set code. Try as-scanned, then fall back
+    // to the English printing (YGOPRODeck is TCG/English-first, so a -JP/-KR
+    // code often needs the -EN equivalent at the same number).
+    let setInfo = await lookupSetCode(num);
+    if (!setInfo) {
+      const enCode = num.replace(/-(JP|KR|AE|SP|IT|DE|FR|PT)(\d)/i, '-EN$2');
+      if (enCode !== num) setInfo = await lookupSetCode(enCode);
+    }
+    if (!setInfo) {
       return res.status(200).json({ error: `Card not found: ${num}`, name: null });
     }
 
