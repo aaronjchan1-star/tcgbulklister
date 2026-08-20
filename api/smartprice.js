@@ -54,7 +54,8 @@ export default async function handler(req, res) {
     if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';
     const p = n.split('-')[0];
     if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(p)) return 'riftbound';
-    if (/^(OP\d|EB\d|ST\d|PRB)/.test(p) || /^P-/.test(n)) return 'onePiece';
+    if (/^GD\d/.test(p)) return 'gundam';
+    if (/^(OP\d|PRB)/.test(p) || /^P-/.test(n)) return 'onePiece';
     return '';
   }
   const game = card.game || gameFromNumber(number) || '';
@@ -72,11 +73,13 @@ export default async function handler(req, res) {
     keywords = `${number} ${name} Riftbound`;
   } else if (game === 'yugioh') {
     keywords = [number, name, variant || '', 'Yugioh'].filter(Boolean).join(' ');
+  } else if (game === 'gundam') {
+    keywords = [number, name, 'Gundam Card Game'].filter(Boolean).join(' ');
   } else {
     keywords = `${number} ${name}`.trim();
   }
 
-  const CATEGORY = { onePiece:'183454', pokemon:'2536', riftbound:'183050', yugioh:'183454' };
+  const CATEGORY = { onePiece:'183454', pokemon:'2536', riftbound:'183050', yugioh:'183454', gundam:'183454' };
 
   try {
     // ── 1. Get eBay AU active listings ──

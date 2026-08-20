@@ -30,7 +30,7 @@ const Listings = (() => {
   let selectMode  = false;
   let selectedIds = new Set();
 
-  const GAME_LABELS = { onePiece:'One Piece', pokemon:'Pokémon', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh!' };
+  const GAME_LABELS = { onePiece:'One Piece', pokemon:'Pokémon', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh!', gundam:'Gundam' };
 
   function toggleSelectMode() {
     selectMode = !selectMode;
@@ -416,8 +416,8 @@ const Listings = (() => {
     el._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
   }
 
-  function gameLabel(item)      { return item.game === 'pokemon' ? 'Pokémon' : 'One Piece'; }
-  function gameBadgeClass(item) { return item.game === 'pokemon' ? 'badge-pk' : 'badge-op'; }
+  function gameLabel(item)      { return ({ onePiece:'One Piece', pokemon:'Pokémon', riftbound:'Riftbound', yugioh:'Yu-Gi-Oh!', gundam:'Gundam' })[item.game] || 'One Piece'; }
+  function gameBadgeClass(item) { return ({ onePiece:'badge-op', pokemon:'badge-pk', riftbound:'badge-rb', yugioh:'badge-ygo', gundam:'badge-gd' })[item.game] || 'badge-op'; }
 
     const SET_NAMES = {
     EB01:'Memorial Collection', EB02:'Anime 25th Collection',
@@ -579,10 +579,15 @@ const Listings = (() => {
       const set = item.setName || item.setId || (item.number ? `#${item.number}` : 'Pokémon');
       return set + v;
     }
+    if (item.game === 'gundam') {
+      const gd = { GD01:'Newtype Rising', GD02:'Dual Impact', GD03:'Steel Requiem', GD04:'Phantom Aria', GD05:'Freedom Ascension' };
+      const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
+      return item.setName || gd[setCode] || setCode || 'Gundam';
+    }
     const setCode = item.number?.split('-')[0]?.toUpperCase() || '';
     // Only use Limitless set name if it passes validation
     const limitless = isValidSetName(item.limitlessSetName) ? item.limitlessSetName : null;
-    const setName   = limitless || SET_NAMES[setCode] || setCode;
+    const setName   = limitless || item.setName || SET_NAMES[setCode] || setCode;
     const lang      = item.lang === 'Japanese' ? 'JP · ' : '';
     return `${lang}${setName}`;
   }

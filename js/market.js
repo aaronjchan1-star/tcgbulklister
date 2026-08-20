@@ -4,7 +4,7 @@
  */
 const Market = (() => {
 
-  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050', yugioh: '183454' };
+  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050', yugioh: '183454', gundam: '183454' };
 
   function buildKeywords(card) {
     const num = card.printedNumber || card.number;
@@ -15,6 +15,7 @@ const Market = (() => {
     }
     if (card.game === 'riftbound') return `${card.number} ${cleanName(card.name)} Riftbound`;
     if (card.game === 'yugioh')    return `${card.number} ${cleanName(card.name)} Yugioh`.trim();
+    if (card.game === 'gundam')    return `${card.number} ${cleanName(card.name)} Gundam Card Game`.trim();
     const alt = /parallel|full art|alt/i.test(variant) ? 'Parallel' : '';
     return [card.number, cleanName(card.name), alt, 'One Piece'].filter(Boolean).join(' ');
   }

@@ -66,6 +66,20 @@ const RARITIES = {
     { value: 'PlScR', label: 'Platinum Secret Rare' },
     { value: 'SP',    label: 'Short Print' },
   ],
+  gundam: [
+    { value: '',      label: '— select rarity —' },
+    { value: 'C',     label: 'Common (C)' },
+    { value: 'U',     label: 'Uncommon (U)' },
+    { value: 'R',     label: 'Rare (R)' },
+    { value: 'LR',    label: 'Legend Rare (LR)' },
+    { value: 'C+',    label: 'Common Foil (C+)' },
+    { value: 'U+',    label: 'Uncommon Foil (U+)' },
+    { value: 'R+',    label: 'Rare Foil (R+)' },
+    { value: 'LR+',   label: 'Legend Rare Alt-Art (LR+)' },
+    { value: 'LR++',  label: 'Legend Rare Special (LR++)' },
+    { value: 'SP',    label: 'Special / Alt-Art (SP)' },
+    { value: 'P',     label: 'Promo (P)' },
+  ],
 };
 
 // Map a raw rarity string (from an API) to our dropdown value

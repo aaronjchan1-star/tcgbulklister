@@ -30,6 +30,7 @@ const API = (() => {
     }
     if (card.game === 'riftbound') return `${card.number} ${card.name} Riftbound`;
     if (card.game === 'yugioh')    return `${card.number} ${card.name} Yugioh`.trim();
+    if (card.game === 'gundam')    return `${card.number} ${card.name} Gundam Card Game`.trim();
     // One Piece (default for OP-style numbers)
     const alt = /parallel|full art|alt/i.test(variant) ? 'Parallel' : '';
     return [card.number, card.name, alt, 'One Piece'].filter(Boolean).join(' ');

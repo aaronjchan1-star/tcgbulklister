@@ -21,7 +21,7 @@
 
 const CSV = (() => {
 
-  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050', yugioh: '183454' }; // 183050 = Other CCG Individual Cards
+  const CATEGORY = { onePiece: '183454', pokemon: '2536', riftbound: '183050', yugioh: '183454', gundam: '183454' }; // 183050 = Other CCG Individual Cards
 
   const CONDITION_MAP = {
     'Near Mint':        '4000',
@@ -74,6 +74,11 @@ const CSV = (() => {
 
     if (card.game === 'pokemon') {
       return card.setName || card.setId || '';
+    }
+
+    if (card.game === 'gundam') {
+      const gd = { GD01:'Newtype Rising', GD02:'Dual Impact', GD03:'Steel Requiem', GD04:'Phantom Aria', GD05:'Freedom Ascension' };
+      return card.setName || gd[setCode] || '';
     }
 
     // One Piece
@@ -196,7 +201,8 @@ const CSV = (() => {
   }
 
   function ebayGame(game) {
-    return game === 'onePiece' ? 'One Piece Card Game' : 'Pokemon TCG';
+    const map = { onePiece:'One Piece Card Game', pokemon:'Pokemon TCG', yugioh:'Yu-Gi-Oh! TCG', riftbound:'Riftbound', gundam:'Gundam Card Game' };
+    return map[game] || 'Pokemon TCG';
   }
 
   function ebayCardCondition(cond) {
@@ -211,10 +217,11 @@ const CSV = (() => {
   }
 
   function getCardImageUrl(card) {
+    if (card.imageUrl) return card.imageUrl;   // Gundam / Yu-Gi-Oh / resolved images
     if (card.game === 'pokemon') {
-      if (card.imageUrl) return card.imageUrl;
       return `https://images.pokemontcg.io/${card.setId}/${card.number}_hires.png`;
     }
+    if (card.game === 'gundam' || card.game === 'yugioh' || card.game === 'riftbound') return '';
     // One Piece: Limitless CDN (same URL used in parent PicURL which works)
     const set    = card.number.split('-')[0].toUpperCase();
     const suffix = card.variant?.suffix || '';
@@ -603,10 +610,12 @@ const CSV = (() => {
     if (n.includes('/')) return 'pokemon';                              // 025/198
     if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';  // LOCR-JP001
     const prefix = n.split('-')[0];
+    if (/^GD\d/.test(prefix)) return 'gundam';                         // GD01-068
     if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
-    if (/^(OP\d|EB\d|ST\d|PRB)/.test(prefix)) return 'onePiece';      // OP01, EB04, ST01, PRB01
+    if (/^(OP\d|PRB)/.test(prefix)) return 'onePiece';                 // OP01, PRB01
     if (/^P-/.test(n)) return 'onePiece';                               // One Piece promo P-001
-    return null;  // unknown — will use explicit Game column or default
+    // ST/EB shared by One Piece & Gundam — leave to the explicit Game column
+    return null;
   }
 
   function downloadTemplate() {

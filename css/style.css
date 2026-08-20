@@ -576,6 +576,13 @@ input:focus, select:focus {
   border: 1px solid #4a4000;
 }
 
+/* ─── Gundam badge ─── */
+.badge-gd {
+  background: #0a1a24;
+  color: #38bdf8;
+  border: 1px solid #164e63;
+}
+
 /* ═══════════════════════════════════════════════════
    MOBILE — condensed UI for card-slinger scanning
    ═══════════════════════════════════════════════════ */
