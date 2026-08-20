@@ -193,6 +193,7 @@ input:focus, select:focus {
 /* ─── Game Toggle ─── */
 .game-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 16px;
 }
@@ -599,7 +600,7 @@ input:focus, select:focus {
   .stat-label { font-size: 10px; }
 
   /* Game toggle — horizontal scroll, no wrap */
-  .game-toggle { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .game-toggle { flex-wrap: wrap; overflow-x: visible; padding-bottom: 4px; }
   .game-btn { padding: 8px 14px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
 
   /* Forms stack fully */
