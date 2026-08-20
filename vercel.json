@@ -44,9 +44,6 @@
     "api/scan.js": {
       "maxDuration": 30
     },
-    "api/ebaymarket.js": {
-      "maxDuration": 30
-    },
     "api/smartprice.js": {
       "maxDuration": 30
     },
