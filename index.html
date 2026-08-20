@@ -26,7 +26,7 @@
   <div class="header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>
       <h1>TCG eBay AU Bulk Lister</h1>
-      <p>Scan · auto-price · export — One Piece, Pokémon, Riftbound, Yu-Gi-Oh! &amp; Gundam <span id="build-stamp" style="opacity:0.4;font-size:11px;">build 20260820b</span></p>
+      <p>Scan · auto-price · export — One Piece, Pokémon, Yu-Gi-Oh! &amp; Gundam <span id="build-stamp" style="opacity:0.4;font-size:11px;">build 20260820b</span></p>
     </div>
     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
       <span class="sync-pill" id="sync-pill" onclick="Sync.openModal()">
@@ -189,7 +189,6 @@
     <div class="game-toggle">
       <button class="game-btn active" id="btn-op" onclick="UI.setGame('onePiece')">One Piece</button>
       <button class="game-btn" id="btn-pk" onclick="UI.setGame('pokemon')">Pokémon</button>
-      <button class="game-btn" id="btn-rb" onclick="UI.setGame('riftbound')">Riftbound</button>
       <button class="game-btn" id="btn-ygo" onclick="UI.setGame('yugioh')">Yu-Gi-Oh!</button>
       <button class="game-btn" id="btn-gd" onclick="UI.setGame('gundam')">Gundam</button>
     </div>
@@ -283,40 +282,6 @@
       </div>
     </div>
 
-    <!-- Riftbound fields -->
-    <div id="rb-fields" style="display:none;">
-      <div class="form-row row-5" style="margin-bottom:12px;">
-        <div class="field">
-          <label>Card number <span style="color:var(--text-muted); font-weight:400;">— press Enter to search</span></label>
-          <div class="input-action-row">
-            <input type="text" id="f-rb-number" placeholder="e.g. UNL-053" maxlength="12"
-              onkeydown="if(event.key==='Enter') UI.searchRiftboundCard()" />
-            <button class="btn-lookup" onclick="UI.searchRiftboundCard()">Search</button>
-          </div>
-          <div class="lookup-status" id="rb-lookup-status"></div>
-          <div id="rb-card-preview" style="display:none; margin-top:8px;">
-            <img id="rb-card-preview-img" src="" alt="" style="width:60px; border-radius:5px; border:1px solid #2a2a2a;" />
-          </div>
-        </div>
-        <div class="field">
-          <label>Card name</label>
-          <input type="text" id="f-rb-name" placeholder="Auto-filled on search" />
-        </div>
-        <div class="field">
-          <label>Condition</label>
-          <select id="f-rb-cond">
-            <option value="Near Mint">Near Mint</option>
-            <option value="Lightly Played">Lightly Played</option>
-            <option value="Moderately Played">Moderately Played</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Qty</label>
-          <input type="number" id="f-rb-qty" value="1" min="1" max="99" />
-        </div>
-      </div>
-    </div>
-
     <!-- Yu-Gi-Oh! fields -->
     <div id="ygo-fields" style="display:none;">
       <div class="form-row row-4" style="margin-bottom:12px;">
@@ -347,6 +312,40 @@
         <div class="field">
           <label>Qty</label>
           <input type="number" id="f-ygo-qty" value="1" min="1" max="99" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Gundam fields -->
+    <div id="gd-fields" style="display:none;">
+      <div class="form-row row-4" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Card number <span style="color:var(--text-muted); font-weight:400;">— press Enter to search</span></label>
+          <div class="input-action-row">
+            <input type="text" id="f-gd-number" placeholder="e.g. GD01-068" maxlength="14"
+              onkeydown="if(event.key==='Enter') UI.searchGundamCard()" />
+            <button class="btn-lookup" onclick="UI.searchGundamCard()">Search</button>
+          </div>
+          <div class="lookup-status" id="gd-lookup-status"></div>
+          <div id="gd-card-preview" style="display:none; margin-top:8px;">
+            <img id="gd-card-preview-img" src="" alt="" style="width:52px; border-radius:5px; border:1px solid #2a2a2a;" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Card name</label>
+          <input type="text" id="f-gd-name" placeholder="Auto-filled on search" />
+        </div>
+        <div class="field">
+          <label>Condition</label>
+          <select id="f-gd-cond">
+            <option value="Near Mint">Near Mint</option>
+            <option value="Lightly Played">Lightly Played</option>
+            <option value="Moderately Played">Moderately Played</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Qty</label>
+          <input type="number" id="f-gd-qty" value="1" min="1" max="99" />
         </div>
       </div>
     </div>

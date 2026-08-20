@@ -223,9 +223,9 @@ const Listings = (() => {
       window._currentOPSetName   = null;
       window._currentCardDetails = null;
 
-    } else if (currentGame === 'riftbound' || currentGame === 'yugioh') {
+    } else if (currentGame === 'yugioh' || currentGame === 'gundam') {
       const g       = currentGame;
-      const prefix  = g === 'riftbound' ? 'f-rb' : 'f-ygo';
+      const prefix  = g === 'gundam' ? 'f-gd' : 'f-ygo';
       const number  = document.getElementById(`${prefix}-number`).value.trim().toUpperCase();
       const nameVal = document.getElementById(`${prefix}-name`).value.trim();
       const cond    = document.getElementById(`${prefix}-cond`).value;
@@ -259,8 +259,9 @@ const Listings = (() => {
         price,
         post,
         listingType,
-        variant:         { suffix: '', label: pickedRarity || detected || '' },
+        variant:         { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity(g, pickedRarity || detected || '') : (pickedRarity || detected || '')) },
         imageUrl:        window._currentCardDetails?.imageUrl || null,
+        setName:         g === 'gundam' ? (window._currentOPSetName || null) : undefined,
         limitlessSetName: window._currentOPSetName || null,
         cardDetails:     window._currentCardDetails || null
       };
@@ -322,7 +323,7 @@ const Listings = (() => {
       document.getElementById('op-card-grid').innerHTML         = '';
       document.getElementById('lookup-status').textContent      = '';
       document.getElementById('f-op-number').focus();
-    } else {
+    } else if (currentGame === 'pokemon') {
       document.getElementById('f-pk-number').value              = '';
       document.getElementById('f-pk-qty').value                 = '1';
       document.getElementById('pk-card-picker').style.display   = 'none';
@@ -331,6 +332,18 @@ const Listings = (() => {
       document.getElementById('pk-lookup-status').textContent   = '';
       document.getElementById('f-pk-name').value                = '';
       document.getElementById('f-pk-number').focus();
+    } else {
+      // Yu-Gi-Oh! / Gundam — clear the active game's fields
+      const prefix = currentGame === 'gundam' ? 'f-gd' : 'f-ygo';
+      const g = id => document.getElementById(id);
+      if (g(`${prefix}-number`))  g(`${prefix}-number`).value = '';
+      if (g(`${prefix}-name`))    g(`${prefix}-name`).value = '';
+      if (g(`${prefix}-qty`))     g(`${prefix}-qty`).value = '1';
+      const statusId = currentGame === 'gundam' ? 'gd-lookup-status' : 'ygo-lookup-status';
+      const previewId = currentGame === 'gundam' ? 'gd-card-preview' : 'ygo-card-preview';
+      if (g(statusId))  g(statusId).textContent = '';
+      if (g(previewId)) g(previewId).style.display = 'none';
+      if (g(`${prefix}-number`)) g(`${prefix}-number`).focus();
     }
     document.getElementById('f-price').value = '';
   }

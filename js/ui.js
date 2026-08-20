@@ -30,17 +30,16 @@ const UI = (() => {
     // Show/hide game-specific fields — use ?. so missing elements don't crash
     const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
     const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none';  };
-    ['op-fields','pk-fields','rb-fields','ygo-fields','gd-fields'].forEach(hide);
+    ['op-fields','pk-fields','ygo-fields','gd-fields'].forEach(hide);
     if (game === 'onePiece')  show('op-fields');
     if (game === 'pokemon')   show('pk-fields');
-    if (game === 'riftbound') show('rb-fields');
     if (game === 'yugioh')    show('ygo-fields');
     if (game === 'gundam')    show('gd-fields');
     // Toggle active button
-    ['btn-op','btn-pk','btn-rb','btn-ygo','btn-gd'].forEach(id => {
+    ['btn-op','btn-pk','btn-ygo','btn-gd'].forEach(id => {
       const el = document.getElementById(id); if (el) el.classList.remove('active');
     });
-    const activeBtn = { onePiece:'btn-op', pokemon:'btn-pk', riftbound:'btn-rb', yugioh:'btn-ygo', gundam:'btn-gd' }[game];
+    const activeBtn = { onePiece:'btn-op', pokemon:'btn-pk', yugioh:'btn-ygo', gundam:'btn-gd' }[game];
     if (activeBtn) { const el = document.getElementById(activeBtn); if (el) el.classList.add('active'); }
     const priceEl = document.getElementById('f-price'); if (priceEl) priceEl.value = '';
     // Populate rarity dropdown for this game
@@ -574,11 +573,42 @@ const UI = (() => {
     }
   }
 
+  async function searchGundamCard() {
+    const numberEl   = document.getElementById('f-gd-number');
+    const nameEl     = document.getElementById('f-gd-name');
+    const statusEl   = document.getElementById('gd-lookup-status');
+    const previewEl  = document.getElementById('gd-card-preview');
+    const previewImg = document.getElementById('gd-card-preview-img');
+    let number = numberEl?.value.trim().toUpperCase();
+    if (!number) { if(statusEl) statusEl.textContent = 'Enter a card number e.g. GD01-068'; return; }
+    // Auto zero-pad the number part: GD01-8 → GD01-008
+    number = number.replace(/([A-Z]+\d+)-(\d+)$/, function(_, pre, n) { return pre + '-' + n.padStart(3,'0'); });
+    if(numberEl) numberEl.value = number;
+    if(statusEl) { statusEl.textContent = 'Searching ' + number + '...'; statusEl.className = 'lookup-status'; }
+    window._currentCardDetails = null; window._currentOPSetName = null;
+    try {
+      const resp = await fetch('/api/gundam?number=' + encodeURIComponent(number));
+      const data = resp.ok ? await resp.json() : null;
+      if (data && data.name) {
+        if(nameEl) nameEl.value = data.name;
+        window._currentCardDetails = data;
+        window._currentOPSetName   = data.setName;
+        if (data.rarity) populateRarities('gundam', data.rarity);
+        if(data.imageUrl && previewImg) { previewImg.src = data.imageUrl; previewEl.style.display = 'block'; }
+        if(statusEl) { statusEl.textContent = 'Found: ' + data.name + (data.rarity ? ' · ' + data.rarity : '') + (data.setName ? ' · ' + data.setName : '') + ' — click Add'; statusEl.className = 'lookup-status ok'; }
+      } else {
+        if(statusEl) { statusEl.textContent = 'Auto-lookup failed — type card name manually below, then Add to list'; statusEl.className = 'lookup-status err'; }
+      }
+    } catch(e) {
+      if(statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'lookup-status err'; }
+    }
+  }
+
   return {
     setGame, toggleCustomPost, setListingType, getListingType, getLotQty,
     searchOPVariants, selectOPFromPicker, getSelectedOPVariant,
     searchPokemonCard, selectPKFromPicker, getSelectedPokemonCard, onPokemonVariantChange, getSelectedPokemonVariant,
-    searchRiftboundCard, searchYugiohCard, getRarity, populateRarities,
+    searchYugiohCard, searchGundamCard, getRarity, populateRarities,
     updatePokemonPreview: () => {}
   };
 })();

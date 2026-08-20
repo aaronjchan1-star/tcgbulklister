@@ -63,10 +63,6 @@ const CSV = (() => {
   function getSetName(card) {
     const setCode = (card.number?.split('-')[0] || '').toUpperCase();
 
-    if (card.game === 'riftbound') {
-      const rb = { OGN:'Origins', OGS:'Origins Proving Grounds', SFD:'Spiritforged', SFS:'Spiritforged Overnumbered', UNL:'Unleashed', ULS:'Unleashed Overnumbered', VEN:'Vendetta', ARC:'Arcane' };
-      return card.limitlessSetName || rb[setCode] || '';
-    }
 
     if (card.game === 'yugioh') {
       return card.limitlessSetName || '';
@@ -510,19 +506,6 @@ const CSV = (() => {
     // setPart is empty if we couldn't resolve a real set name (avoids "OP16-098 OP16")
     const setPart = setName ? ` ${setName}` : '';
 
-    if (card.game === 'riftbound') {
-      raw = `${name} ${card.number}${setPart}${playsetSuffix}`;
-    } else if (card.game === 'yugioh') {
-      raw = `${name} ${card.number}${setPart}${playsetSuffix}`;
-    } else if (card.game === 'pokemon') {
-      // Pokemon: "Pikachu 025/198 Surging Sparks Reverse Holo"
-      const variant = card.variant && card.variant !== 'Normal' ? ` ${card.variant}` : '';
-      const pkNum   = card.printedNumber || card.number;
-      raw = `${name} ${pkNum}${setPart}${variant}${playsetSuffix}`;
-    } else {
-      // One Piece
-      raw = `${name} ${card.number}${lang}${setPart}${playsetSuffix}`;
-    }
     // Collapse any accidental double spaces
     raw = raw.replace(/\s{2,}/g, ' ').trim();
     const title   = raw.length > 80 ? raw.substring(0, 77) + '...' : raw;
@@ -611,7 +594,6 @@ const CSV = (() => {
     if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';  // LOCR-JP001
     const prefix = n.split('-')[0];
     if (/^GD\d/.test(prefix)) return 'gundam';                         // GD01-068
-    if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
     if (/^(OP\d|PRB)/.test(prefix)) return 'onePiece';                 // OP01, PRB01
     if (/^P-/.test(n)) return 'onePiece';                               // One Piece promo P-001
     // ST/EB shared by One Piece & Gundam — leave to the explicit Game column

@@ -321,7 +321,6 @@ window.Scan = (() => {
     if (/[- ]?(EN|JP|KR|AE|SP|IT|DE|FR|PT)\d{2,3}\b/i.test(n)) return 'yugioh';
     const prefix = n.split('-')[0];
     if (/^GD\d/.test(prefix)) return 'gundam';                 // GD01-068 (Gundam only)
-    if (/^(OGN|OGS|SFD|SFS|UNL|ULS|VEN|ARC)$/.test(prefix)) return 'riftbound';
     // One Piece: OP##- or PRB##- or promo "P-###" are unambiguous.
     if (/^(OP\d|PRB)/.test(prefix)) return 'onePiece';
     if (/^P-/.test(n)) return 'onePiece';
@@ -408,29 +407,6 @@ window.Scan = (() => {
           base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('onePiece', opRarity) : opRarity) };
         }
         // If the card couldn't be found, the number was probably misread — flag it
-        if (!found) base.needsRarityCheck = true;
-      } else if (ident.game === 'riftbound') {
-        const r = await fetch(`/api/riftbound?number=${encodeURIComponent(base.number)}`);
-        if (r.ok) {
-          const d = await r.json();
-          if (d.name) base.name = d.name;
-          base.limitlessSetName = d.setName || null;
-          base.imageUrl    = d.imageUrl || null;
-          base.cardDetails = d;
-          base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('riftbound', d.rarity || '') : (d.rarity || '')) };
-        }
-      } else if (ident.game === 'gundam') {
-        const r = await fetch(`/api/gundam?number=${encodeURIComponent(base.number)}`);
-        let found = false;
-        if (r.ok) {
-          const d = await r.json();
-          if (d.name) { base.name = d.name; found = true; }
-          base.setName     = d.setName || null;
-          base.setCode     = d.setCode || null;
-          base.imageUrl    = d.imageUrl || null;
-          base.cardDetails = d;
-          base.variant     = { suffix: '', label: (typeof normaliseRarity === 'function' ? normaliseRarity('gundam', d.rarity || '') : (d.rarity || '')) };
-        }
         if (!found) base.needsRarityCheck = true;
       } else if (ident.game === 'yugioh') {
         const r = await fetch(`/api/yugioh?number=${encodeURIComponent(base.number)}`);
